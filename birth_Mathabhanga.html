@@ -110,11 +110,35 @@ td{
     background:#fff;
   }
 }
+
+
+.online-counter{
+ position:fixed;right:10px;top:10px;z-index:1000;background:#fff;
+ border:2px solid #00695c;border-radius:10px;padding:10px 14px;
+ font-family:Arial;box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:13px;
+}
+.online-counter b{color:#00695c}
+#countStatus{font-size:11px;color:#555}
+@media print{.online-counter{display:none!important}}
 </style>
 
+
+<style>#onlineCounter{font-size:12px;line-height:1.45;max-width:320px}#onlineCounter input,#onlineCounter button{font-size:11px}#historyResult{background:#f5f5f5;padding:4px;border-radius:4px}@media print{#onlineCounter{display:none!important}}</style>
 </head>
 
 <body>
+
+<div class="online-counter" id="onlineCounter">
+  <div><b>📊 Content Count</b></div>
+  <div>🖨️ Print: <b id="printCount">0</b> &nbsp; 📄 PDF: <b id="pdfCount">0</b> &nbsp; 🔢 Total: <b id="totalCount">0</b></div>
+  <div style="margin-top:6px;">পুরনো Count: <input type="date" id="historyDate"><button type="button" onclick="loadHistory()">View</button></div>
+  <div id="historyResult" style="display:none;margin-top:5px"></div>
+  <div style="margin-top:6px"><button type="button" onclick="openAdminLogin()">🔐 Admin Login</button></div>
+  <div id="adminBox" style="display:none;margin-top:5px"><input type="password" id="adminPassword" placeholder="Admin Password" autocomplete="current-password"><button type="button" onclick="adminLogin()">Login</button><div id="adminStatus"></div></div>
+  <div id="adminPanel" style="display:none;margin-top:5px"><button type="button" onclick="deleteAllCounts()" style="background:#b71c1c;color:#fff;border:0;border-radius:4px;padding:4px 7px">🗑️ Delete All Counts</button> <button type="button" onclick="adminLogout()">Logout</button></div>
+  <span id="countStatus">Loading...</span>
+</div>
+
   <!-- FORM -->
 <div style="position:fixed; 
   top:10px;
@@ -406,13 +430,60 @@ function nameInput(id){
 return document.getElementById(id).value;
 }
 
-function downloadPDF(){
-html2pdf().from(document.querySelector(".container")).save();
+
+// ===== ONLINE PRINT / PDF COUNTER + DATE HISTORY + ADMIN =====
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbxrMpVHrOqtlHCEMEOqbprJxyb61lSH9jdfm3RzDtuQWgeO-Rm8wItD5_TXuDFzXCAW7Q/exec";
+let countBusy=false;
+
+async function apiJSON(url, options={}){
+  const response=await fetch(url,Object.assign({redirect:"follow",cache:"no-store"},options));
+  const text=await response.text();
+  return JSON.parse(text);
 }
-  
-function printPage(){
+function showCounts(data){
+  document.getElementById("printCount").textContent=Number(data.print)||0;
+  document.getElementById("pdfCount").textContent=Number(data.pdf)||0;
+  document.getElementById("totalCount").textContent=Number(data.total)||0;
+}
+async function updateOnlineCount(type){
+  if(!COUNT_API_URL||countBusy)return false; countBusy=true;
+  document.getElementById("countStatus").textContent="Updating...";
+  try{
+    const data=await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"increment",type})});
+    if(!data.ok)throw new Error(data.error||"Update failed");
+    showCounts(data); document.getElementById("countStatus").textContent="Saved";
+    countBusy=false; return true;
+  }catch(e){document.getElementById("countStatus").textContent="API error";countBusy=false;return false;}
+}
+async function loadOnlineCount(){
+  try{const data=await apiJSON(COUNT_API_URL+"?action=get&_="+Date.now());if(!data.ok)throw new Error();showCounts(data);document.getElementById("countStatus").textContent="Today: "+(data.date||"");}catch(e){document.getElementById("countStatus").textContent="Offline";}
+}
+async function loadHistory(){
+  const d=document.getElementById("historyDate").value,box=document.getElementById("historyResult");
+  box.style.display="block"; if(!d){box.textContent="Please select a date.";return;} box.textContent="Loading...";
+  try{const data=await apiJSON(COUNT_API_URL+"?action=history&date="+encodeURIComponent(d)+"&_="+Date.now());if(!data.ok)throw new Error();box.innerHTML="📅 "+data.date+" — 🖨️ Print: <b>"+data.print+"</b> &nbsp; 📄 PDF: <b>"+data.pdf+"</b> &nbsp; 🔢 Total: <b>"+data.total+"</b>";}catch(e){box.textContent="History unavailable";}
+}
+function openAdminLogin(){document.getElementById("adminBox").style.display="block";document.getElementById("adminPassword").focus();}
+async function adminLogin(){
+  const password=document.getElementById("adminPassword").value,status=document.getElementById("adminStatus");if(!password)return;status.textContent="Checking...";
+  try{const data=await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"login",password})});if(!data.ok)throw new Error();sessionStorage.setItem("countAdminToken",data.token);document.getElementById("adminBox").style.display="none";document.getElementById("adminPanel").style.display="block";status.textContent="";}catch(e){status.textContent="❌ Wrong password";}
+}
+async function deleteAllCounts(){
+  const token=sessionStorage.getItem("countAdminToken");if(!token)return;if(!confirm("সব দিনের Print/PDF/Total Count মুছে ফেলতে চান? এই কাজটি ফিরিয়ে আনা যাবে না।"))return;
+  try{const data=await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"deleteAll",token})});if(!data.ok)throw new Error(data.error||"Delete failed");alert("সব Count মুছে দেওয়া হয়েছে।");adminLogout();loadOnlineCount();}catch(e){alert("Delete failed: "+e.message);}
+}
+function adminLogout(){sessionStorage.removeItem("countAdminToken");document.getElementById("adminPanel").style.display="none";document.getElementById("adminBox").style.display="none";}
+
+async function downloadPDF(){
+  await updateOnlineCount("pdf");
+  await html2pdf().from(document.querySelector(".container")).save();
+}
+async function printPage(){
+  await updateOnlineCount("print");
   window.print();
 }
+loadOnlineCount();
+setInterval(loadOnlineCount,15000);
 </script>
 </body>
 </html>
