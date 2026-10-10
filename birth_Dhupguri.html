@@ -1,140 +1,657 @@
-const SHEET_NAME="Count";
-const LOG_SHEET_NAME="CountHistory";
-const TOKEN_SHEET_NAME="AdminSessions";
-const DEFAULT_ADMIN_PASSWORD="123456";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Certificate</title>
 
-function setup(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
-  let sh=ss.getSheetByName(SHEET_NAME)||ss.insertSheet(SHEET_NAME);
-  sh.getRange("A1:E1").setValues([["Print Count","PDF Count","Total Count","Last Action","Last Time"]]);
-  if(sh.getRange("A2").getValue()==="") sh.getRange("A2").setValue(0);
-  if(sh.getRange("B2").getValue()==="") sh.getRange("B2").setValue(0);
-  sh.getRange("C2").setValue(Number(sh.getRange("A2").getValue())+Number(sh.getRange("B2").getValue()));
-
-  let log=ss.getSheetByName(LOG_SHEET_NAME)||ss.insertSheet(LOG_SHEET_NAME);
-  if(log.getLastRow()===0) log.getRange("A1:D1").setValues([["Date","Type","Time","Action"]]);
-
-  let tok=ss.getSheetByName(TOKEN_SHEET_NAME)||ss.insertSheet(TOKEN_SHEET_NAME);
-  if(tok.getLastRow()===0) tok.getRange("A1:C1").setValues([["Token","Created","Expires"]]);
-
-  const p=PropertiesService.getScriptProperties();
-  if(!p.getProperty("ADMIN_PASSWORD")) p.setProperty("ADMIN_PASSWORD",DEFAULT_ADMIN_PASSWORD);
+<style>
+@page{
+  size:A4;
+  margin:0;
 }
 
-function doGet(e){
-  try{
-    setup();
-    const action=String((e&&e.parameter&&e.parameter.action)||"").toLowerCase();
-    if(action==="history") return json_(getHistory_(String(e.parameter.date||"")));
-    return json_(getToday_());
-  }catch(err){ return json_({ok:false,error:String(err)}); }
+body{
+  margin:0;
+  background:#ddd;
+}
+  
+ /*.page-border{
+  width:210mm;
+  height:297mm;
+  margin:auto;
+  background:#fff;
+  border:4px double #000;
+  box-sizing:border-box;
+}*/
+  
+.container{
+  width:190mm;
+  height:270mm;
+  margin:auto;
+  background:#fff;
+  margin-top:20px;
+  padding:10mm;
+  position:relative;
+  box-sizing:border-box;
+  border:4px double #000;
+}
+  
+.left-overlay-logo{
+  position:absolute;
+  top:90px;      /* উপরে কতটা নামবে */
+  left:150px;     /* বাম দিক থেকে দূরত্ব */
+  width:120px;   /* logo size */
+  opacity:0.9;  /* watermark effect */
+  z-index:0;     /* নিচে থাকবে */
+}
+/* Column control */
+table col:nth-child(4){
+  width:1%;
 }
 
-function doPost(e){
-  try{
-    setup();
-    const data=JSON.parse((e.postData&&e.postData.contents)||"{}");
-    const action=String(data.action||"").toLowerCase();
-
-    if(action==="increment") return json_(increment_(String(data.type||"").toLowerCase()));
-    if(action==="login") return json_(login_(String(data.password||"")));
-    if(action==="deleteall"||action==="delete_all") return json_(deleteAll_(String(data.token||"")));
-
-    return json_({ok:false,error:"Invalid action: "+action});
-  }catch(err){ return json_({ok:false,error:String(err)}); }
+table{
+  width:100%;
+  height:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+  font-family:Arial;
 }
 
-function increment_(type){
-  if(!["print","pdf"].includes(type)) return {ok:false,error:"Invalid type"};
-  const lock=LockService.getScriptLock();
-  lock.waitLock(10000);
-  try{
-    const ss=SpreadsheetApp.getActiveSpreadsheet();
-    const sh=ss.getSheetByName(SHEET_NAME);
-    const log=ss.getSheetByName(LOG_SHEET_NAME);
-    let print=Number(sh.getRange("A2").getValue())||0;
-    let pdf=Number(sh.getRange("B2").getValue())||0;
-    if(type==="print") print++; else pdf++;
-    const total=print+pdf;
-    const now=new Date();
-    sh.getRange("A2:E2").setValues([[print,pdf,total,type,now]]);
-    log.appendRow([dateKey_(now),type,now,"increment"]);
-    return {ok:true,print:print,pdf:pdf,total:total,date:dateKey_(now)};
-  }finally{ lock.releaseLock(); }
+td{
+  vertical-align:middle;
+  text-align:center;
+  font-size:13px;
+  padding:5px;
 }
 
-function getToday_(){
-  const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  const print=Number(sh.getRange("A2").getValue())||0;
-  const pdf=Number(sh.getRange("B2").getValue())||0;
-  return {ok:true,print:print,pdf:pdf,total:print+pdf,date:dateKey_(new Date())};
+.left{
+  text-align:left;
+  padding-left:10px;
 }
 
-function getHistory_(dateText){
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateText)) return {ok:false,error:"Invalid date"};
-  const log=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LOG_SHEET_NAME);
-  let print=0,pdf=0;
-  if(log&&log.getLastRow()>=2){
-    const values=log.getRange(2,1,log.getLastRow()-1,4).getValues();
-    values.forEach(function(r){
-      if(String(r[0])===dateText){
-        if(String(r[1]).toLowerCase()==="print") print++;
-        if(String(r[1]).toLowerCase()==="pdf") pdf++;
-      }
-    });
+.center{
+  text-align:center;
+}
+
+.bold{
+  font-weight:bold;
+}
+
+.big{
+  font-size:18px;
+  font-weight:bold;
+}
+
+.logo{
+  width:55px;
+  height:55px;
+}
+
+/* Header center logo */
+.header-logo{
+  display:block;
+  margin:0 auto 6px auto;
+  width:60px;
+}
+
+/* Overlay block */
+.overlay-box{
+  position:relative;
+  padding-top:20px;
+}
+
+.overlay-logo{
+  position:absolute;
+  top:35px;
+  left:50%;
+  transform:translateX(-50%);
+  width:110px;
+}
+
+.qr img{
+  width:90px;
+}
+@media print{
+  #onlineCountBox, div[style*="position:fixed"]{
+    display:none;
   }
-  return {ok:true,date:dateText,print:print,pdf:pdf,total:print+pdf};
+  body{
+    background:#fff;
+  }
 }
 
-function login_(password){
-  const correct=PropertiesService.getScriptProperties().getProperty("ADMIN_PASSWORD")||DEFAULT_ADMIN_PASSWORD;
-  if(!password||password!==correct) return {ok:false,error:"Wrong password"};
-  const token=Utilities.getUuid();
-  const now=new Date();
-  const expires=new Date(Date.now()+30*60*1000);
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TOKEN_SHEET_NAME).appendRow([token,now,expires]);
-  return {ok:true,token:token};
+/* ===== ONLINE PRINT / PDF COUNTER + DATE HISTORY + ADMIN ===== */
+.online-counter{
+ position:fixed;right:10px;top:10px;z-index:1000;background:#fff;
+ border:2px solid #00695c;border-radius:10px;padding:10px 14px;
+ font-family:Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2);
+ font-size:13px;line-height:1.5;min-width:235px;
+}
+.online-counter b{color:#00695c}
+.online-counter input,.online-counter button{font-size:11px}
+.online-counter button{cursor:pointer}
+#countStatus{font-size:11px;color:#555}
+#historyResult{background:#f5f5f5;padding:5px;border-radius:5px;margin-top:5px}
+@media print{.online-counter{display:none!important}}
+</style>
+
+</head>
+
+<body>
+  
+<!-- ONLINE PRINT / PDF COUNT -->
+<div class="online-counter" id="onlineCounter">
+  <div><b>📊 Content Count</b></div>
+  <div>🖨️ Print: <b id="printCount">0</b> &nbsp; 📄 PDF: <b id="pdfCount">0</b> &nbsp; 🔢 Total: <b id="totalCount">0</b></div>
+  <div style="margin-top:6px;">📅 পুরনো Count:
+    <input type="date" id="historyDate">
+    <button type="button" onclick="loadHistory()">View</button>
+  </div>
+  <div id="historyResult" style="display:none"></div>
+  <div style="margin-top:6px">
+    <button type="button" onclick="openAdminLogin()">🔐 Admin Login</button>
+  </div>
+  <div id="adminBox" style="display:none;margin-top:5px">
+    <input type="password" id="adminPassword" placeholder="Admin Password" autocomplete="current-password">
+    <button type="button" onclick="adminLogin()">Login</button>
+    <div id="adminStatus"></div>
+  </div>
+  <div id="adminPanel" style="display:none;margin-top:5px">
+    <button type="button" onclick="deleteAllCounts()" style="background:#b71c1c;color:#fff;border:0;border-radius:4px;padding:4px 7px">🗑️ Delete All Counts</button>
+    <button type="button" onclick="adminLogout()">Logout</button>
+  </div>
+  <span id="countStatus">Loading...</span>
+</div>
+
+<!-- FORM -->
+<div style="position:fixed; 
+  top:10px;
+  left:10px; 
+  background:#fff;
+  padding:10px; 
+  border:1px solid #000;
+  z-index:999;
+  height:70vh;
+  overflow:auto;">
+
+<input id="name" placeholder="Name"><br><br>
+<input id="sex" placeholder="Sex"><br><br>
+<input id="dob" placeholder="DOB"><br><br>
+<input id="dobWords" placeholder="DOB In Words"><br><br>
+<input id="place" placeholder="Birth Place"><br><br>
+
+<input id="mother" placeholder="Mother Name"><br><br>
+<input id="father" placeholder="Father Name"><br><br>
+
+<input id="motherA" placeholder="Mother Aadhaar"><br><br>
+<input id="fatherA" placeholder="Father Aadhaar"><br><br>
+
+<input id="addr1" placeholder="Address 1"><br><br>
+<input id="addr2" placeholder="Address 2"><br><br>
+
+<input id="regno" placeholder="Registration No"><br><br>
+<input id="regdate" placeholder="Registration Date"><br><br>
+
+<input id="remarkInput" placeholder="Remark"><br><br>
+<input id="authorityInput" placeholder="Authority"><br><br>
+<input id="updateTime" placeholder="Updated Time"><br><br>
+
+<button onclick="updateAll()">Update</button>
+<button onclick="downloadPDF()">PDF</button>
+<button onclick="printPage()">Print</button>
+</div>
+  
+  
+
+
+
+<div class="page-border">
+<div class="container">
+  <img src="dhupguri1.png" class="left-overlay-logo">
+<table>
+<colgroup>
+  <col style="width:10%;">  <!-- 1 -->
+  <col style="width:14%;">  <!-- 2 -->
+  <col style="width:20%;">  <!-- 3 -->
+  <col style="width:1%;">   <!-- 4 (middle gap small) -->
+  <col style="width:20%;">  <!-- 5 -->
+  <col style="width:14%;">  <!-- 6 -->
+  <col style="width:10%;">  <!-- 7 -->
+</colgroup>
+
+<!-- Row 1 -->
+<tr>
+<td colspan="2"><img src="birth_3.2.jpg" class="logo" style="height:80px;"></td>
+
+<td colspan="3" class="bold">
+<img src="birth_1.2.png" class="header-logo" style="width:20px;">
+
+পশ্চিমবঙ্গ সরকার<br>
+GOVERNMENT OF WEST BENGAL<br>
+GOVERNMENT OF WEST BENGAL COLONY<br><br>
+
+RURAL HOSPITAL DHUPGURI<br><br>
+
+<span class="big" style="font-size:14px;color:green;">জম্ম শংসাপত্র<br>Birth Certificate</span>
+</td>
+
+<td colspan="2"><img src="birth_2.2.jpg" class="logo" style="height:80px;"></td>
+</tr>
+
+<!-- Row 2 -->
+<tr>
+<td colspan="7" class="left" style="font-size:10px;">
+ (১৯৬৯ সালে জম্ম-মৃত্যু নিবন্ধীকরণ আইনের ধারা ১২/১৭ এবং 2000 সালের পশ্চিম বঙ্গের জম্ম-মৃত্যু নিবন্ধীকরণ বিধি ৮/১৩ অনুযায়ী জারি করা হইতেছে।)
+(ISSUED UNDER SECTION 12/17 OF THE REGISTRATION OF BIRTHS & DEATHS ACT. 1969 AND RULE 8/13 OF THE WEST BENGAL REGISTRATION OF BIRTHS & DEATHS RULES 2000)
+</td>
+</tr>
+
+<!-- Row 3 -->
+<tr>
+<td colspan="7" class="left" style="font-size:9px;">
+এই মর্মে জ্ঞাতকরা যাইতেছে যে নিম্নবর্ণিত বিবরণী মূল জম্ম নথি হইতে লওয়া হইয়াছে, উক্ত নথি পশ্চিম বঙ্গ রাজ্যের, জলপাইগুড়ি জেলার, ধূপগুড়ি ব্লক এর জম্ম নিবন্ধে লিপিবদ্ধ আছে। <br>
+THIS IS TO CERTIFICATE THE FOLLOWING INFORMATION HAS BEEN TAKEN FROM THE ORGINAL RECORD OF BIRTH WHICH IS THE REGISTER FOR RURAL 
+  HOSPITAL DHUPGURI OF TASHIL/BLOCK DHUPGURI OF DISTRICT JALPAIGURI OF STATE/UNION TERRITORY WEST BENGAL, INDIA 2000.
+</td>
+</tr>
+
+<!-- Row 4 -->
+<td colspan="3" class="left" id="nameField">নাম / NAME : ANKRIT SARKAR</td>
+<td></td>
+<td colspan="3" class="left" id="sexField">লিঙ্গ / SEX : MALE
+</td>
+
+<!-- Row 5 -->
+<tr>
+<td colspan="3" class="left" id="dobField">
+জন্মতারিখ / DATE OF BIRTH : <br> 01/02/2002<br>
+  <span id="dobWordsField">ONE- JANUARY- TWO THOUSAND AND TWO</span>
+</td>
+<td></td>
+<td colspan="3" class="left" id="placeField">
+জন্মস্থান / PLACE OF BIRTH : <br> RURAL HOSPITAL DHUPGURI
+</td>
+</tr>
+
+<!-- Row 6 -->
+<tr>
+<td colspan="3" class="left" id="motherField">মাতার নাম / NAME OF MOTHER : <br>ANJALI BISWAS</td>
+<td></td>
+<td colspan="3" class="left" id="fatherField">পিতার নাম / NAME OG FATHER : <br>ANIL CHANDRA BISWAS</td>
+</tr>
+
+<!-- Row 7 -->
+<tr>
+<td colspan="3" class="left" id="motherAadhaar">আধার সংখ্যা / MOTHER'S AADHAAR NO : <br> XXXXXXXX2356</td>
+<td></td>
+<td colspan="3" class="left" id="fatherAadhaar"> আধার সংখ্যা / FATHER'S AADHAAR NO : <br> XXXXXXXX5698</td>
+</tr>
+
+<!-- Row 8 -->
+<tr>
+<td colspan="3" class="left" id="address1">
+শিশুর জম্মের সময় পিতা - মাতার ঠিকানা / ADDRESS OF PARENTS AT THE TIME OF BIRTH OF CHILD :<br>
+KALIRHAT, DHUPGURI, JALPAIGURI, WEST BENGAL, 735210
+</td>
+<td></td>
+<td colspan="3" class="left" id="address2">
+ পিতা - মাতার স্থায়ী / PERMANENT ADDRESS OF PARENTS :<br>
+KALIRHAT, DHUPGURI, JALPAIGURI, WEST BENGAL, 735210
+</td>
+</tr>
+
+<!-- Row 9 -->
+<tr>
+<td colspan="3" class="left" id="regNo">
+নিবন্ধীকরণ নং / REGISTRATION NUMBER :<br> B-2020: 19-00123-567890
+</td>
+<td></td>
+<td colspan="3" class="left" id="regDate">
+নিবন্ধীকরণ তারিখ REGISTRATION DATE : <br> 02/03/2025
+</td>
+</tr>
+
+<!-- Row 10 -->
+<tr>
+<td colspan="3" class="left" id="remark">REMARK : ___</td>
+<td></td>
+<td colspan="3" class="left" id="authority">প্রদানকারী কর্তৃপক্ষ / ISSUING AUTHORITY :</td>
+</tr>
+
+<!-- Row 11 -->
+<tr>
+<td></td><td></td><td></td><td></td>
+
+<td colspan="3" rowspan="2" class="overlay-box center bold">
+
+<img src="dhupguri.png" class="overlay-logo" style="width:230px; height:110px;">
+
+নিবন্ধীকরণ (জম্ম ও মৃত্যু)<br><br>
+SUB REGISTER (DEATH & BIRTH)<br><br><br>
+RURAL HOSPITAL DHUPGURI
+
+</td>
+</tr>
+
+<!-- Row 12 -->
+<tr>
+<td colspan="3" class="left">
+<br><br><br><br>UPDATED ON : <br>
+  <span id="updateTimeField">09:03:2025 12:16:24</span>
+</td>
+<td></td>
+</tr>
+
+<!-- Row 13 -->
+<tr>
+<td colspan="3" class="left qr">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=AshokSarkar-2002-Mathabhanga">
+</td>
+<td colspan="4"></td>
+</tr>
+
+<!-- Row 14 -->
+<tr>
+<td></td>
+<td colspan="5" class="center" style="font-size:10px;">
+"THIS IS A COMPUTER GENARATED CERTIFICATE"<br>
+"THE GOVT. OF INDIA VIDE CIRCULAR NO. 1/12/2024-VS(CRS) DATED 27 - JULY - 2015 HAS APPROVED THIS CERTIFICATE AS A VALID LEGAL DOCUMENT FOR ALL OFFICIAL PURPOSES".<br>
+
+</td>
+<td></td>
+</tr>
+
+<!-- Row 15 -->
+<tr>
+<td></td>
+<td colspan="5" class="center" style="font-size:10px;">
+*প্রতিটি জম্ম - মৃত্যু নিবন্ধীকরণ সুনিশ্চিত করুন* / ENSURE REGISTRATION OF EVERY BIRTH AND DEATH"
+</td>
+<td></td>
+</tr>
+
+ <!-- Row 16 -->
+<tr>
+<td></td>
+<td></td>
+
+<td colspan="3" class="center">
+<img src="https://barcode.tec-it.com/barcode.ashx?data=ASHOKSARKAR2002&code=Code128&dpi=96" style="width:220px; height:20px;">
+</td>
+
+<td></td>
+<td></td>
+</tr>
+  
+</table>
+
+</div>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+
+function updateAll(){
+
+let name = nameInput("name");
+let sex = nameInput("sex");
+let dob = nameInput("dob");
+let place = nameInput("place");
+
+let mother = nameInput("mother");
+let father = nameInput("father");
+
+let mA = nameInput("motherA");
+let fA = nameInput("fatherA");
+
+let a1 = nameInput("addr1");
+let a2 = nameInput("addr2");
+
+let regno = nameInput("regno");
+let regdate = nameInput("regdate");
+
+let remark = nameInput("remarkInput");
+let auth = nameInput("authorityInput");
+  
+  let dobWords = nameInput("dobWords");
+let updateTime = nameInput("updateTime");
+
+// Update Fields
+set("nameField", "নাম / NAME : " + name);
+set("sexField", "লিঙ্গ / Sex : " + sex);
+
+set("dobField","জন্মতারিখ / DATE OF BIRTH : <br>" +
+dob +
+"<br><span id='dobWordsField'>" +dobWords +"</span>");
+set("placeField", "জন্মস্থান / BIRTH PLACE : <br>" + place);
+
+set("motherField", "মাতার নাম : <br>" + mother);
+set("fatherField", "পিতার নাম : <br>" + father);
+
+set("motherAadhaar", "MOTHER'S AADHAAR NO : <br>" + mA);
+set("fatherAadhaar", "FATHER'S AADHAAR NO : <br>" + fA);
+
+set("address1", "ADDRESS OF PARENTS:<br>" + a1);
+set("address2", "PERMANENT ADDRESS:<br>" + a2);
+
+set("regNo", "REGISTRATION NO :<br>" + regno);
+set("regDate", "REGISTRATION DATE :<br>" + regdate);
+
+set("remark", "REMARK : " + remark);
+set("authority", "ISSUING AUTHORITY : " + auth);
+  set("updateTimeField", updateTime);
+ 
+
+// 🔳 QR + Barcode Sync
+let data = name + "-" + dob + "-" + regno;
+
+document.querySelector(".qr img").src =
+"https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" + encodeURIComponent(data);
+
+document.querySelector("img[src*='barcode']").src =
+"https://barcode.tec-it.com/barcode.ashx?data=" + encodeURIComponent(data);
+
 }
 
-function deleteAll_(token){
-  if(!validToken_(token)) return {ok:false,error:"Unauthorized or expired Admin session"};
+function set(id, val){
+document.getElementById(id).innerHTML = val;
+}
 
-  const lock=LockService.getScriptLock();
-  lock.waitLock(10000);
+function nameInput(id){
+return document.getElementById(id).value;
+}
+
+/* ===== ONLINE PRINT / PDF COUNTER + DATE HISTORY + ADMIN ===== */
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbwcbLzNaTNgmkg3Qrs18_Sg5iIb1WGXAJZi-q9pLTv4o3Lhko6i2rIYlvvJW2X9yQux/exec";
+let countBusy = false;
+
+async function apiJSON(url, options={}){
+  const response = await fetch(url, Object.assign({redirect:"follow",cache:"no-store"}, options));
+  const text = await response.text();
+  if(!text) throw new Error("Empty API response");
+  return JSON.parse(text);
+}
+
+function showCounts(data){
+  if(!data) return;
+  if(data.print !== undefined) document.getElementById("printCount").textContent = Number(data.print)||0;
+  if(data.pdf !== undefined) document.getElementById("pdfCount").textContent = Number(data.pdf)||0;
+  if(data.total !== undefined) document.getElementById("totalCount").textContent = Number(data.total)||0;
+}
+
+async function updateOnlineCount(type){
+  if(!COUNT_API_URL || countBusy) return false;
+  countBusy = true;
+  document.getElementById("countStatus").textContent = "Updating...";
   try{
-    const ss=SpreadsheetApp.getActiveSpreadsheet();
+    const data = await apiJSON(COUNT_API_URL,{
+      method:"POST", mode:"cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"increment",type:type})
+    });
+    if(!data.ok) throw new Error(data.error||"Update failed");
+    showCounts(data);
+    document.getElementById("countStatus").textContent = "Saved";
+    countBusy = false;
+    return true;
+  }catch(e){
+    console.error(e);
+    document.getElementById("countStatus").textContent = "API error";
+    countBusy = false;
+    return false;
+  }
+}
 
-    const log=ss.getSheetByName(LOG_SHEET_NAME);
-    if(log&&log.getLastRow()>1){
-      log.getRange(2,1,log.getLastRow()-1,Math.max(4,log.getLastColumn())).clearContent();
+async function loadOnlineCount(){
+  try{
+    const data = await apiJSON(COUNT_API_URL+"?action=get&_="+Date.now());
+    if(!data.ok) throw new Error(data.error||"Load failed");
+    showCounts(data);
+    document.getElementById("countStatus").textContent = "Today: "+(data.date||"");
+  }catch(e){
+    console.error(e);
+    document.getElementById("countStatus").textContent = "Offline";
+  }
+}
+
+async function loadHistory(){
+  const d = document.getElementById("historyDate").value;
+  const box = document.getElementById("historyResult");
+  box.style.display = "block";
+  if(!d){ box.textContent = "Please select a date."; return; }
+  box.textContent = "Loading...";
+  try{
+    const data = await apiJSON(COUNT_API_URL+"?action=history&date="+encodeURIComponent(d)+"&_="+Date.now());
+    if(!data.ok) throw new Error(data.error||"History unavailable");
+    box.innerHTML = "📅 "+data.date+"<br>🖨️ Print: <b>"+(Number(data.print)||0)+"</b> &nbsp; 📄 PDF: <b>"+(Number(data.pdf)||0)+"</b> &nbsp; 🔢 Total: <b>"+(Number(data.total)||0)+"</b>";
+  }catch(e){
+    box.textContent = "History unavailable";
+  }
+}
+
+function openAdminLogin(){
+  document.getElementById("adminBox").style.display = "block";
+  document.getElementById("adminPassword").focus();
+}
+
+async function adminLogin(){
+  const password = document.getElementById("adminPassword").value.trim();
+  const status = document.getElementById("adminStatus");
+  if(!password){ status.textContent="Password দিন"; return; }
+  status.textContent = "Checking...";
+  try{
+    const data = await apiJSON(COUNT_API_URL,{
+      method:"POST", mode:"cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"login",password:password})
+    });
+    if(!data.ok) throw new Error(data.error||"Wrong password");
+    sessionStorage.setItem("countAdminToken",data.token);
+    document.getElementById("adminBox").style.display = "none";
+    document.getElementById("adminPanel").style.display = "block";
+    status.textContent = "";
+  }catch(e){
+    status.textContent = "❌ Wrong password";
+  }
+}
+
+async function deleteAllCounts(){
+  const token = sessionStorage.getItem("countAdminToken");
+  const status = document.getElementById("countStatus");
+
+  if(!token){
+    alert("Admin Login session পাওয়া যায়নি। আবার Admin Login করুন।");
+    return;
+  }
+
+  if(!confirm("সব দিনের Print/PDF/Total Count এবং History মুছে ফেলতে চান? এই কাজটি ফিরিয়ে আনা যাবে না।")) return;
+
+  status.textContent = "Deleting...";
+  try{
+    const data = await apiJSON(COUNT_API_URL,{
+      method:"POST",
+      mode:"cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"deleteAll",token:token})
+    });
+
+    if(!data.ok) throw new Error(data.error || "Delete failed");
+
+    document.getElementById("printCount").textContent = "0";
+    document.getElementById("pdfCount").textContent = "0";
+    document.getElementById("totalCount").textContent = "0";
+
+    const historyBox = document.getElementById("historyResult");
+    if(historyBox){
+      historyBox.style.display = "none";
+      historyBox.innerHTML = "";
     }
 
-    const sh=ss.getSheetByName(SHEET_NAME);
-    if(sh) sh.getRange("A2:E2").setValues([[0,0,0,"delete all",new Date()]]);
+    status.textContent = "Deleted successfully";
+    alert("✅ সব Print/PDF/Total Count এবং পুরনো History মুছে দেওয়া হয়েছে।");
 
-    const tok=ss.getSheetByName(TOKEN_SHEET_NAME);
-    if(tok&&tok.getLastRow()>1) tok.getRange(2,1,tok.getLastRow()-1,3).clearContent();
-
-    SpreadsheetApp.flush();
-    return {ok:true,print:0,pdf:0,total:0,message:"All counts and history deleted"};
-  }finally{ lock.releaseLock(); }
+    adminLogout();
+    await loadOnlineCount();
+  }catch(e){
+    console.error("Delete All Counts error:", e);
+    status.textContent = "Delete failed";
+    alert("❌ Count delete failed: " + (e.message || e));
+  }
 }
 
-function validToken_(token){
-  if(!token) return false;
-  const tok=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TOKEN_SHEET_NAME);
-  if(!tok||tok.getLastRow()<2) return false;
-  const values=tok.getRange(2,1,tok.getLastRow()-1,3).getValues();
-  const now=new Date();
-  return values.some(function(r){
-    return String(r[0])===token && r[2] instanceof Date && r[2]>now;
-  });
+function adminLogout(){
+  sessionStorage.removeItem("countAdminToken");
+  document.getElementById("adminPanel").style.display = "none";
+  document.getElementById("adminBox").style.display = "none";
+  document.getElementById("adminPassword").value = "";
 }
 
-function dateKey_(d){
-  return Utilities.formatDate(d,Session.getScriptTimeZone(),"yyyy-MM-dd");
+async function downloadPDF(){
+  const ok = await updateOnlineCount("pdf");
+  if(!ok){ alert("Online PDF count update failed. PDF was not generated."); return; }
+  await html2pdf().from(document.querySelector(".container")).save();
 }
 
-function json_(obj){
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+let printCountInProgress = false;
+
+async function printPage(){
+  if(printCountInProgress) return;
+  printCountInProgress = true;
+  try{
+    const ok = await updateOnlineCount("print");
+    if(!ok){
+      alert("Online Print count update failed. Print was not started.");
+      return;
+    }
+    // API response সম্পূর্ণ হওয়ার পর print dialog খুলবে।
+    await new Promise(r=>setTimeout(r,150));
+    window.print();
+  } finally {
+    setTimeout(()=>{ printCountInProgress=false; },500);
+  }
 }
+
+// Ctrl+P / Cmd+P চাপলে আগে Print Count online-এ save হবে, তারপর print dialog খুলবে।
+document.addEventListener("keydown", async function(e){
+  if((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase()==="p"){
+    e.preventDefault();
+    e.stopPropagation();
+    await printPage();
+  }
+}, true);
+
+// Browser-এর অন্য native print command-এর fallback।
+let nativePrintFallback = false;
+window.addEventListener("beforeprint", function(){
+  if(nativePrintFallback || printCountInProgress) return;
+  nativePrintFallback = true;
+  updateOnlineCount("print").finally(()=>{ nativePrintFallback=false; });
+});
+
+loadOnlineCount();
+setInterval(loadOnlineCount,15000);
+</script>
+</body>
+</html>
