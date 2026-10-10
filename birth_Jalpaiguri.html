@@ -456,7 +456,7 @@ return document.getElementById(id).value;
 }
 
 /* ===== ONLINE PRINT / PDF COUNTER + DATE HISTORY + ADMIN ===== */
-const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbxrMpVHrOqtlHCEMEOqbprJxyb61lSH9jdfm3RzDtuQWgeO-Rm8wItD5_TXuDFzXCAW7Q/exec";
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbwmOU-IyAo5yx_Q81Y7Bo3RYhS-2tisdlTvlrq-Lv2PMqE1Fm0vJ6TWbU2Tj1Pny_Aj/exec";
 let countBusy = false;
 
 async function apiJSON(url, options={}){
@@ -581,11 +581,41 @@ async function downloadPDF(){
   await html2pdf().from(document.querySelector(".container")).save();
 }
 
+let printCountInProgress = false;
+
 async function printPage(){
-  const ok = await updateOnlineCount("print");
-  if(!ok){ alert("Online Print count update failed. Print was not started."); return; }
-  window.print();
+  if(printCountInProgress) return;
+  printCountInProgress = true;
+  try{
+    const ok = await updateOnlineCount("print");
+    if(!ok){
+      alert("Online Print count update failed. Print was not started.");
+      return;
+    }
+    // API response সম্পূর্ণ হওয়ার পর print dialog খুলবে।
+    await new Promise(r=>setTimeout(r,150));
+    window.print();
+  } finally {
+    setTimeout(()=>{ printCountInProgress=false; },500);
+  }
 }
+
+// Ctrl+P / Cmd+P চাপলে আগে Print Count online-এ save হবে, তারপর print dialog খুলবে।
+document.addEventListener("keydown", async function(e){
+  if((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase()==="p"){
+    e.preventDefault();
+    e.stopPropagation();
+    await printPage();
+  }
+}, true);
+
+// Browser-এর অন্য native print command-এর fallback।
+let nativePrintFallback = false;
+window.addEventListener("beforeprint", function(){
+  if(nativePrintFallback || printCountInProgress) return;
+  nativePrintFallback = true;
+  updateOnlineCount("print").finally(()=>{ nativePrintFallback=false; });
+});
 
 loadOnlineCount();
 setInterval(loadOnlineCount,15000);
