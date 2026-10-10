@@ -111,7 +111,7 @@ td{
   }
 }
 
-
+<style>
 .online-counter{
  position:fixed;right:10px;top:10px;z-index:1000;background:#fff;
  border:2px solid #00695c;border-radius:10px;padding:10px 14px;
@@ -121,7 +121,7 @@ td{
 #countStatus{font-size:11px;color:#555}
 @media print{.online-counter{display:none!important}}
 </style>
-
+</style>
 
 <style>#onlineCounter{font-size:12px;line-height:1.45;max-width:320px}#onlineCounter input,#onlineCounter button{font-size:11px}#historyResult{background:#f5f5f5;padding:4px;border-radius:4px}@media print{#onlineCounter{display:none!important}}</style>
 </head>
@@ -432,7 +432,7 @@ return document.getElementById(id).value;
 
 
 // ===== ONLINE PRINT / PDF COUNTER + DATE HISTORY + ADMIN =====
-const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbxrMpVHrOqtlHCEMEOqbprJxyb61lSH9jdfm3RzDtuQWgeO-Rm8wItD5_TXuDFzXCAW7Q/exec";
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbwsLiSzfhcMlGvCM3wCShHKFhUXWHB0ZA0xyRg0a2hjdhlkzxf9SJtE5VF9dVl8XqUi/exec";
 let countBusy=false;
 
 async function apiJSON(url, options={}){
@@ -478,10 +478,43 @@ async function downloadPDF(){
   await updateOnlineCount("pdf");
   await html2pdf().from(document.querySelector(".container")).save();
 }
+let printCountInProgress = false;
+
 async function printPage(){
-  await updateOnlineCount("print");
-  window.print();
+  if(printCountInProgress) return;
+  printCountInProgress = true;
+  try{
+    const saved = await updateOnlineCount("print");
+    if(!saved){
+      // Count API failed: do not silently count later or duplicate.
+      document.getElementById("countStatus").textContent = "Print count failed";
+    }
+    // Give the browser a moment to finish the API request before opening print dialog.
+    await new Promise(r=>setTimeout(r,150));
+    window.print();
+  } finally {
+    setTimeout(()=>{ printCountInProgress=false; },500);
+  }
 }
+
+// Ctrl+P / Cmd+P: update the online Print Count first, then open the print dialog.
+document.addEventListener("keydown", async function(e){
+  if((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase()==="p"){
+    e.preventDefault();
+    await printPage();
+  }
+}, true);
+
+// Also catch browser/system print commands where the beforeprint event fires.
+// This is only a fallback; Ctrl+P is handled above to avoid opening the dialog too early.
+let nativePrintFallback = false;
+window.addEventListener("beforeprint", function(){
+  if(nativePrintFallback || printCountInProgress) return;
+  nativePrintFallback = true;
+  // beforeprint cannot reliably pause the native dialog, so send a best-effort count.
+  updateOnlineCount("print").finally(()=>{ nativePrintFallback=false; });
+});
+
 loadOnlineCount();
 setInterval(loadOnlineCount,15000);
 </script>
