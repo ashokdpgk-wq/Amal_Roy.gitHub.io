@@ -566,7 +566,7 @@ border-radius:8px;
 <ul class="submenu">
 <li><a href="#">Birth Certificate</a></li>
 <li><a href="#">Death Certificate</a></li>
-<li><a href="#">Caste Certificate</a></li>
+<li><a href="Cast_Certificate_Find.html">Caste Certificate</a></li>
 <li><a href="#">Income Certificate</a></li>
 </ul>
 </li>
@@ -753,6 +753,7 @@ style="display:none;">
 <button onclick="openSubMenu('voterMenu')">🗳 Voter Card</button>
 <button onclick="openSubMenu('panMenu')">💳 PAN Card</button>
 <button onclick="openSubMenu('aadhaarMenu')">🪪 Aadhaar Card</button>
+<button onclick="openSubMenu('oldAgePensionMenu')">👴 Old Age Pension</button>
 <button onclick="openSubMenu('rationMenu')">🍚 Ration Card</button>
 <button class="close-btn" onclick="closePopup()">Close</button>
 </div>
@@ -849,21 +850,54 @@ style="display:none;">
 <div id="aadhaarSearchMenu" class="popup-menu sub-menu">
     <h2>Search Aadhaar</h2>
     <div style="max-height:320px;overflow-y:auto;">
-        <button onclick="openAadhaarPage('magurmari1.html')">MAGURMARI - I</button>
-        <button onclick="openAadhaarPage('magurmari2.html')">MAGURMARI - II</button>
-        <button onclick="openAadhaarPage('jharalta1.html')">JHARALTA GRAM - I</button>
-        <button onclick="openAadhaarPage('jharalta2.html')">JHARALTA GRAM - II</button>
-        <button onclick="openAadhaarPage('gadong1.html')">GADONG - I</button>
-        <button onclick="openAadhaarPage('gadong2.html')">GADONG - II</button>
-        <button onclick="openAadhaarPage('sakoyajhora1.html')">SAKOYAJHORA - I</button>
-        <button onclick="openAadhaarPage('sakoyajhora2.html')">SAKOYAJHORA - II</button>
-        <button onclick="openAadhaarPage('gadheyarkuthi.html')">GADHEYARKUTHI</button>
-        <button onclick="openAadhaarPage('barogaria.html')">BAROGARIA</button>
+        <button onclick="openAadhaarPage('Aadhar_Magurmari_I.html')">MAGURMARI - I</button>
+        <button onclick="openAadhaarPage('Aadhaar_Magurmari_II.html')">MAGURMARI - II</button>
+        <button onclick="openAadhaarPage('Aadhaar_Jharaltagram_I.html')">JHARALTA GRAM - I</button>
+        <button onclick="openAadhaarPage('Aadhaar_Jharaltagram_II.html')">JHARALTA GRAM - II</button>
+        <button onclick="openAadhaarPage('Aadhaar_Gadong_I.html')">GADONG - I</button>
+        <button onclick="openAadhaarPage('Aadhaar_Gadong_II.html')">GADONG - II</button>
+        <button onclick="openAadhaarPage('Aadhaar_Sakoyajhora_I.html')">SAKOYAJHORA - I</button>
+        <button onclick="openAadhaarPage('Aadhaar_Sakoyajhora_II.html')">SAKOYAJHORA - II</button>
+        <button onclick="openAadhaarPage('Aadhar_Gadheyarkuthi.html')">GADHEYARKUTHI</button>
+        <button onclick="openAadhaarPage('Aadhaar_Barogaria.html')">BAROGARIA</button>
     </div>
     <button class="back-btn" onclick="backAadhaar()">
         ⬅ Back
     </button>
 </div>
+<!-- OLD AGE PENSION -->
+<div id="oldAgePensionMenu" class="popup-menu sub-menu">
+    <h2>Old Age Pension</h2>
+    <button>New Application</button>
+    <button onclick="openSubMenu('oldAgePensionSearchMenu')">
+        🔍 Search
+    </button>
+    <button>Download</button>
+    <button class="back-btn" onclick="backMain()">
+        ⬅ Back
+    </button>
+</div>
+
+<!-- Old Age Pension Search Menu -->
+<div id="oldAgePensionSearchMenu" class="popup-menu sub-menu">
+    <h2>Search Old Age Pension</h2>
+    <div style="max-height:320px;overflow-y:auto;">
+        <button onclick="openOldAgePensionPage('NSAP_Magurmari-1_Beneficiaries.html')">MAGURMARI - I</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-magurmari2.html')">MAGURMARI - II</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-jharalta1.html')">JHARALTA GRAM - I</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-jharalta2.html')">JHARALTA GRAM - II</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-gadong1.html')">GADONG - I</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-gadong2.html')">GADONG - II</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-sakoyajhora1.html')">SAKOYAJHORA - I</button>
+        <button onclick="openOldAgePensionPage('old-age-pension-sakoyajhora2.html')">SAKOYAJHORA - II</button>
+        <button onclick="openOldAgePensionPage('NSAP_Gadheyar-kuthi_Beneficiaries.html')">GADHEYARKUTHI</button>
+        <button onclick="openOldAgePensionPage('NSAP_Baroghariya_Beneficiaries.html')">BAROGARIA</button>
+    </div>
+    <button class="back-btn" onclick="backOldAgePension()">
+        ⬅ Back
+    </button>
+</div>
+
 <!-- Ration -->
 <div id="rationMenu" class="popup-menu sub-menu">
     <h2>Ration Card</h2>
@@ -879,16 +913,13 @@ style="display:none;">
 <div id="rationSearchMenu" class="popup-menu sub-menu">
     <h2>Search Ration Card</h2>
     <div style="max-height:320px;overflow-y:auto;">
-        <button onclick="openRationPage('magurmari1.html')">UTTPAL KUMAR ROY</button>
-        <button onclick="openRationPage('magurmari2.html')">JAGANNATH & SUNIL ROY</button>
-        <button onclick="openRationPage('jharalta1.html')">ARAJIT GHOSH</button>
-        <button onclick="openRationPage('jharalta2.html')">KAMINI ROY</button>
-        <button onclick="openRationPage('gadong1.html')">PANNALAL ROY</button>
-        <button onclick="openRationPage('gadong2.html')">DEBASHISH KUMAR ROY</button>
-        <button onclick="openRationPage('sakoyajhora1.html')">SAKOYAJHORA - I</button>
-        <button onclick="openRationPage('sakoyajhora2.html')">SAKOYAJHORA - II</button>
-        <button onclick="openRationPage('gadheyarkuthi.html')">GADHEYARKUTHI</button>
-        <button onclick="openRationPage('barogaria.html')">BAROGARIA</button>
+        <button onclick="openRationPage('utpal_kumar_roy.html')">UTTPAL KUMAR ROY</button>
+        <button onclick="openRationPage('jagannath_&_sunil_roy.html')">JAGANNATH & SUNIL ROY</button>
+        <button onclick="openRationPage('arojit_ghosh.html')">ARAJIT GHOSH</button>
+        <button onclick="openRationPage('amal_kr_roy.html')">AMAL_KR_ROY</button>
+        <button onclick="openRationPage('Gopal_Chandra_Saha.html')">GOPAL CR SAHA</button>
+        <button onclick="openRationPage('panna_lal_saha.html')">PANNALAL ROY</button>
+        <button onclick="openRationPage('amulya_roy.html')">AMULYA ROY</button>
     </div>
     <button class="back-btn" onclick="backRation()">
         ⬅ Back
@@ -1752,14 +1783,18 @@ function backWork(){
  //=========================
 // Create Part 1 - Part 150
 //=========================
+const voterParts = [110, 111, 112, 113];
+
 let html = "";
-for(let i=111;i<=111;i++){
+
+voterParts.forEach(function(part){
     html += `
-    <button onclick="openVoterPage(${i})">
-        Part - ${i}
+    <button onclick="openVoterPage(${part})">
+        Part - ${part}
     </button>
     `;
-}
+});
+
 document.getElementById("voterPartList").innerHTML = html;
 //=========================
 // Open Part Page
@@ -1810,6 +1845,19 @@ function backAadhaar(){
         document.getElementById("aadhaarMenu").classList.add("show");
     },250);
 }
+// =========================
+ // OLD AGE PENSION
+ // =========================
+ function openOldAgePensionPage(page){
+     window.location.href = page;
+ }
+ function backOldAgePension(){
+     document.getElementById("oldAgePensionSearchMenu").classList.remove("show");
+     setTimeout(()=>{
+         document.getElementById("oldAgePensionMenu").classList.add("show");
+     },250);
+ }
+
 // Ration Page
 function openRationPage(page){
     window.location.href = page;
