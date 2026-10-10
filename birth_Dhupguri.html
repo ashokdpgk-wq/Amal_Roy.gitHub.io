@@ -112,7 +112,7 @@ td{
   width:90px;
 }
 @media print{
-  div[style*="position:fixed"]{
+  #onlineCountBox, div[style*="position:fixed"]{
     display:none;
   }
   body{
@@ -124,7 +124,17 @@ td{
 </head>
 
 <body>
-  <!-- FORM -->
+  
+<!-- ONLINE PRINT / PDF COUNT -->
+<div id="onlineCountBox" style="position:fixed;right:10px;top:10px;background:#fff;border:2px solid #00695c;padding:10px 14px;border-radius:10px;z-index:1000;font-family:Arial;box-shadow:0 2px 8px rgba(0,0,0,.2);min-width:180px;text-align:left;">
+  <div style="font-weight:bold;color:#00695c;margin-bottom:5px;">ONLINE COUNT</div>
+  <div>🖨️ Print: <b id="printCount">0</b></div>
+  <div>📄 PDF: <b id="pdfCount">0</b></div>
+  <div style="border-top:1px solid #ddd;margin-top:5px;padding-top:5px;">Total: <b id="totalCount">0</b></div>
+  <div id="countStatus" style="font-size:10px;color:#777;margin-top:4px;">Connecting...</div>
+</div>
+
+<!-- FORM -->
 <div style="position:fixed; 
   top:10px;
   left:10px; 
@@ -424,13 +434,114 @@ function nameInput(id){
 return document.getElementById(id).value;
 }
 
-function downloadPDF(){
-html2pdf().from(document.querySelector(".container")).save();
+/* ===== ONLINE PRINT / PDF COUNTER =====
+   Google Apps Script Web App URL
+*/
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbz6wtHb-tauDRefTT8RudoKwqQgMwSvR3vjjIEIMiiIl8fQhUHlH8h5JOwSQGZU3B2yCw/exec";
+let countBusy = false;
+
+function showCounts(data){
+  if(!data) return;
+  if(data.print !== undefined) document.getElementById("printCount").textContent = Number(data.print) || 0;
+  if(data.pdf !== undefined) document.getElementById("pdfCount").textContent = Number(data.pdf) || 0;
+  if(data.total !== undefined) document.getElementById("totalCount").textContent = Number(data.total) || 0;
 }
-  
-function printPage(){
+
+async function updateOnlineCount(type){
+  if(!COUNT_API_URL){
+    document.getElementById("countStatus").textContent = "API URL missing";
+    return false;
+  }
+  if(countBusy) return false;
+  countBusy = true;
+  document.getElementById("countStatus").textContent = "Updating...";
+
+  try{
+    /* First try the Apps Script POST API. */
+    const response = await fetch(COUNT_API_URL, {
+      method:"POST",
+      mode:"cors",
+      redirect:"follow",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"increment",type:type})
+    });
+
+    const text = await response.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch(e) {}
+
+    if(!response.ok) throw new Error("HTTP " + response.status);
+    if(data && data.ok === false) throw new Error(data.error || "Count failed");
+
+    if(data && data.ok){
+      showCounts(data);
+      document.getElementById("countStatus").textContent = "Synced";
+    }else{
+      /* Some Apps Script deployments return an empty/redirected response.
+         The request itself may still have reached doPost, so refresh counts. */
+      document.getElementById("countStatus").textContent = "Saved";
+      setTimeout(loadOnlineCount, 700);
+    }
+
+    countBusy = false;
+    return true;
+
+  }catch(err){
+    console.error("Online counter:", err);
+    document.getElementById("countStatus").textContent = "API error";
+    countBusy = false;
+    return false;
+  }
+}
+
+async function loadOnlineCount(){
+  if(!COUNT_API_URL) return;
+
+  try{
+    const url = COUNT_API_URL + "?action=get&_=" + Date.now();
+    const response = await fetch(url, {
+      method:"GET",
+      mode:"cors",
+      redirect:"follow",
+      cache:"no-store"
+    });
+
+    const text = await response.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch(e) {}
+
+    if(data && data.ok){
+      showCounts(data);
+      document.getElementById("countStatus").textContent = "Synced";
+    }else{
+      document.getElementById("countStatus").textContent = "Connected";
+    }
+  }catch(err){
+    console.error("Online counter read:", err);
+    document.getElementById("countStatus").textContent = "API error";
+  }
+}
+
+async function downloadPDF(){
+  const ok = await updateOnlineCount("pdf");
+  if(!ok){
+    alert("Online PDF count update failed. PDF was not generated.");
+    return;
+  }
+  html2pdf().from(document.querySelector(".container")).save();
+}
+
+async function printPage(){
+  const ok = await updateOnlineCount("print");
+  if(!ok){
+    alert("Online Print count update failed. Print was not started.");
+    return;
+  }
   window.print();
 }
+
+loadOnlineCount();
+setInterval(loadOnlineCount, 15000);
 </script>
 </body>
 </html>
