@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>কাজের হিসাব খাতা — Edit যোগ্য</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:18px;background:#eef3fb;color:#172554;font-family:"Noto Sans Bengali","SolaimanLipi",Arial,sans-serif}
+  .sheet{max-width:1400px;margin:auto;background:#fff;padding:18px;border:1px solid #cbd5e1;box-shadow:0 5px 20px #0f172a12}
+  h1{font-size:24px;text-align:center;margin:0 0 8px}
+  .note{text-align:center;color:#64748b;font-size:13px;margin-bottom:15px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  button{border:0;border-radius:6px;padding:9px 13px;background:#0f766e;color:#fff;font-size:14px;cursor:pointer}
+  button.secondary{background:#475569} button.danger{background:#b91c1c}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;min-width:1150px;border-collapse:collapse;table-layout:fixed}
+  th,td{border:1px solid #2563eb;padding:7px 6px;text-align:center;vertical-align:middle;overflow-wrap:anywhere}
+  th{background:#dbeafe;font-weight:700;font-size:14px}
+  td{height:48px;background:#fff}
+  td[contenteditable="true"],th[contenteditable="true"]{outline:none}
+  td[contenteditable="true"]:focus,th[contenteditable="true"]:focus{background:#fffbeb;box-shadow:inset 0 0 0 2px #f59e0b}
+  #workTable td,#workTable th{-webkit-tap-highlight-color:transparent}
+  td.num{font-variant-numeric:tabular-nums}
+  tfoot td{background:#ecfdf5;font-weight:bold;height:48px}
+  .status{cursor:pointer;font-weight:bold}
+  .edit-lock-note{font-size:12px;color:#b45309;margin:0 0 10px;text-align:center}
+  .status.approved{color:#15803d}.status.rejected{color:#b91c1c}.status.under-process{color:#b45309}
+  .bottom-label{font-size:12px;color:#64748b;margin-top:12px}
+  /* মোবাইল স্ক্রিনে পুরো হিসাব খাতা একসঙ্গে দেখানোর জন্য */
+  @media screen and (max-width: 700px){
+    body{padding:8px;background:#eef3fb}
+    .sheet{width:100%;max-width:none;padding:10px 8px;margin:0;border:1px solid #dbe3ef;box-shadow:0 3px 12px #0f172a12}
+    h1{font-size:18px;margin:0 0 6px}
+    .note{font-size:10px;line-height:1.5;margin-bottom:8px}
+    .edit-lock-note{font-size:9px;line-height:1.4;margin-bottom:8px}
+    .toolbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+    button{font-size:10px;padding:7px 6px;border-radius:4px}
+    .table-wrap{overflow-x:visible;width:100%}
+    table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse}
+    th,td{padding:4px 2px;font-size:9px;line-height:1.25;overflow-wrap:anywhere;word-break:normal}
+    th{font-size:8px}
+    td{height:32px}
+    tfoot td{height:32px}
+    .bottom-label{font-size:9px;line-height:1.4;margin-top:8px}
+  }
+  @media screen and (max-width: 380px){
+    body{padding:4px}
+    .sheet{padding:8px 5px}
+    h1{font-size:16px}
+    button{font-size:9px;padding:6px 4px}
+    th,td{font-size:8px;padding:3px 1px}
+    th{font-size:7px}
+  }
+  @media print{
+    body{padding:0;background:#fff}.sheet{max-width:none;border:0;box-shadow:none;padding:5mm}
+    .toolbar,.note,.bottom-label,.edit-lock-note{display:none}
+    h1{font-size:18px}
+    th,td{padding:5px;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table{min-width:0}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1 contenteditable="true">কাজের হিসাব খাতা</h1>
+  <div class="note">প্রথমে “Edit” বোতামে ক্লিক করে পাসওয়ার্ড দিন। পাসওয়ার্ড সঠিক হলে টেবিলের তথ্য সম্পাদনা করতে পারবেন।</div>
+  <div class="edit-lock-note">ডিফল্ট পাসওয়ার্ড: 1234 — JavaScript-এর ADMIN_PASSWORD পরিবর্তন করে নিজের পাসওয়ার্ড সেট করুন।</div>
+  <div class="toolbar">
+    <button onclick="startEditMode()">✎ Edit</button>
+    <button class="secondary" id="finishEditBtn" onclick="finishEditMode()" style="display:none">✓ সম্পাদনা শেষ</button>
+    <button onclick="addRow()">＋ নতুন সারি</button>
+    <button class="secondary" onclick="window.print()">প্রিন্ট / PDF</button>
+    <button class="secondary" onclick="saveData()">এই ব্রাউজারে সেভ</button>
+    <button class="secondary" onclick="loadData()">সেভ করা তথ্য খুলুন</button>
+    <button class="secondary" onclick="exportHTML()">HTML ফাইল ডাউনলোড</button>
+    <button class="danger" onclick="clearRows()">সব সারি মুছুন</button>
+  </div>
+  <div class="table-wrap">
+  <table id="workTable">
+    <thead><tr>
+      <th contenteditable="true" style="width:5%">ক্রমিক নং</th>
+      <th contenteditable="true" style="width:11%">কাজের নাম</th>
+      <th contenteditable="true" style="width:11%">কাজের টাকা দেওয়ার তারিখ</th>
+      <th contenteditable="true" style="width:9%">Tender Value</th>
+      <th contenteditable="true" style="width:11%">জমা দেওয়া টাকার পরিমাণ</th>
+      <th contenteditable="true" style="width:11%">টাকা জমা দেওয়ার তারিখ</th>
+      <th contenteditable="true" style="width:9%">Approved / Reject</th>
+      <th contenteditable="true" style="width:11%">Refune Value</th>
+      <th contenteditable="true" style="width:11%">ফেরত দেওয়া টাকার পরিমাণ</th>
+      <th contenteditable="true" style="width:11%">টাকা ফেরত দেওয়ার তারিখ</th>
+    </tr></thead>
+    <tbody id="rows">
+      <tr>
+        <td contenteditable="true">1</td><td contenteditable="true">Annapurna</td><td contenteditable="true">13/04/2025</td>
+        <td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">17/04/2025</td>
+        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
+      </tr>
+      <tr>
+        <td contenteditable="true">2</td><td contenteditable="true">Laxmibhander</td><td contenteditable="true">21/03/2026</td>
+        <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">25/03/2026</td>
+        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
+      </tr>
+      <tr>
+        <td contenteditable="true">3</td><td contenteditable="true">Bhata</td><td contenteditable="true">21/03/2026</td>
+        <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">2000</td><td contenteditable="true">25/03/2026</td>
+        <td class="status approved" onclick="toggleStatus(this)">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
+      </tr>
+    </tbody>
+    <tfoot><tr>
+      <td colspan="4" contenteditable="true" style="text-align:right">মোট</td>
+      <td id="totalAgent" contenteditable="true">5000</td>
+      <td></td><td></td><td id="totalFirst" contenteditable="true">3000</td>
+      <td id="totalSecond" contenteditable="true">2000</td>
+      <td id="totalLast" contenteditable="true">2000</td>
+    </tr></tfoot>
+  </table>
+  </div>
+  <div class="bottom-label">দ্রষ্টব্য: ছবির হাতের লেখার কিছু শিরোনাম অস্পষ্ট ছিল, তাই শিরোনামগুলো সম্পাদনাযোগ্য রাখা হয়েছে।</div>
+</div>
+<script>
+// পাসওয়ার্ডটি নিজের মতো বদলান।
+const ADMIN_PASSWORD = '1234';
+let editMode = false;
+
+function askEditPassword(){
+  const entered = prompt('Edit mode চালু করতে পাসওয়ার্ড দিন:');
+  if(entered === null) return false;
+  if(entered !== ADMIN_PASSWORD){
+    alert('ভুল পাসওয়ার্ড! Edit mode চালু হয়নি।');
+    return false;
+  }
+  return true;
+}
+
+function startEditMode(){
+  if(editMode){
+    alert('Edit mode ইতিমধ্যে চালু আছে।');
+    return;
+  }
+  if(!askEditPassword()) return;
+  editMode = true;
+  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
+    if(!el.classList.contains('status')) el.contentEditable = 'true';
+  });
+  document.getElementById('finishEditBtn').style.display = 'inline-block';
+  alert('Edit mode চালু হয়েছে। এখন টেবিলের তথ্য পরিবর্তন করতে পারবেন।');
+}
+
+function finishEditMode(){
+  editMode = false;
+  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
+    if(el.dataset.newRowFreeEdit !== 'true') el.contentEditable = 'false';
+  });
+  document.getElementById('finishEditBtn').style.display = 'none';
+  recalculateTotals();
+  saveDataSilently();
+  alert('সম্পাদনা শেষ হয়েছে। পরিবর্তিত তথ্য সেভ করা হয়েছে।');
+}
+
+function lockEditableFields(){
+  document.querySelectorAll('#workTable [contenteditable="true"]').forEach(el=>{
+    el.dataset.passwordLocked = 'true';
+    el.contentEditable = 'false';
+  });
+}
+
+// টেবিলে টাচ/ক্লিক করলেই কোনো edit tool বা keyboard খুলবে না।
+// কেবল Edit বোতামে সঠিক পাসওয়ার্ড দিয়ে mode চালু করলে ঘরগুলো সম্পাদনাযোগ্য হবে।
+document.addEventListener('click', function(event){
+  const cell = event.target.closest('#workTable td, #workTable th');
+  if(!cell) return;
+  if(!editMode && !cell.closest('tr')?.querySelector('[data-new-row-free-edit="true"]')){
+    event.preventDefault();
+    if(document.activeElement && document.activeElement.isContentEditable){
+      document.activeElement.blur();
+    }
+  }
+}, true);
+
+function toggleStatus(cell){
+  if(!editMode){
+    alert('প্রথমে Edit বোতামে ক্লিক করে পাসওয়ার্ড দিন।');
+    return;
+  }
+  // তিনটি অবস্থা: Reject → Approved → Under Process → Reject
+  if(cell.classList.contains('rejected')){
+    cell.classList.remove('rejected','under-process');
+    cell.classList.add('approved'); cell.textContent='✓ Approved';
+  } else if(cell.classList.contains('approved')){
+    cell.classList.remove('approved','rejected');
+    cell.classList.add('under-process'); cell.textContent='⏳ Under Process';
+  } else {
+    cell.classList.remove('approved','under-process');
+    cell.classList.add('rejected'); cell.textContent='✕ Reject';
+  }
+  updateRefundValues();
+  recalculateTotals();
+  saveDataSilently();
+}
+
+function updateRefundValues(){
+  // Reject হলে জমা দেওয়া টাকার পরিমাণ Refund Value ঘরে বসবে; অন্য অবস্থায় ঘর ফাঁকা থাকবে।
+  document.querySelectorAll('#rows tr').forEach(row=>{
+    const status=row.cells[6];
+    const deposited=row.cells[4];
+    const refundValue=row.cells[7];
+    if(!status || !deposited || !refundValue) return;
+    if(status.classList.contains('rejected')){
+      refundValue.textContent=deposited.textContent.trim();
+    } else {
+      refundValue.textContent='';
+    }
+  });
+}
+
+function recalculateTotals(){
+  const rows = [...document.querySelectorAll('#rows tr')];
+  // শুধু নির্দিষ্ট টাকার কলামগুলিই যোগ হবে; তারিখ/স্ট্যাটাস কলাম যোগ হবে না।
+  const sumColumn = index => rows.reduce((sum, row) => {
+    const cell = row.cells[index];
+    if(!cell) return sum;
+    const raw = cell.textContent.trim().replace(/[,₹\s]/g,'');
+    // ফাঁকা ঘরকে 0 ধরা হবে; অ-সংখ্যা থাকলে তা বাদ যাবে।
+    if(raw === '') return sum;
+    if(!/^-?\d+(\.\d+)?$/.test(raw)) return sum;
+    return sum + Number(raw);
+  }, 0);
+  const fmt = n => Number.isInteger(n) ? String(n) : n.toFixed(2);
+  const agent = document.getElementById('totalAgent');
+  const first = document.getElementById('totalFirst');
+  const second = document.getElementById('totalSecond');
+  const last = document.getElementById('totalLast');
+  if(agent) agent.textContent = fmt(sumColumn(4));
+  if(first) first.textContent = fmt(sumColumn(7));
+  if(second) second.textContent = fmt(sumColumn(8));
+  // শেষ কলামটি তারিখের কলাম, তাই সেখানে টাকার যোগফল দেখানো যাবে না।
+  if(last) last.textContent = '';
+}
+
+// পৃষ্ঠা খুললেই আগে সেভ করা টেবিল ফিরিয়ে আনুন, তারপর Refund ও মোট হিসাব আপডেট করুন।
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    const saved = localStorage.getItem('editableWorkLedger');
+    if(saved) {
+      const box = document.createElement('div');
+      box.innerHTML = saved;
+      const restored = box.querySelector('table');
+      if(restored) {
+        const current = document.getElementById('workTable');
+        restored.id = 'workTable';
+        current.replaceWith(restored);
+      }
+    }
+  } catch(err) { console.error('সেভ করা তথ্য লোড করা যায়নি:', err); }
+  updateRefundValues();
+  recalculateTotals();
+});
+
+function saveDataSilently(){
+  const table = document.getElementById('workTable');
+  if(!table) return false;
+  try {
+    localStorage.setItem('editableWorkLedger', table.outerHTML);
+    return true;
+  } catch(err) {
+    console.error('সেভ করা যায়নি:', err);
+    return false;
+  }
+}
+window.addEventListener('pagehide', saveDataSilently);
+window.addEventListener('beforeunload', saveDataSilently);
+
+// সম্পাদনার সময়ই মোট টাকা লাইভ আপডেট হবে।
+document.addEventListener('input', function(event){
+  if(event.target.closest('#workTable')){
+    if(event.target.closest('#rows tr')) updateRefundValues();
+    recalculateTotals();
+    saveDataSilently();
+  }
+});
+
+function addRow(){
+  // নতুন সারি যোগ করতে পাসওয়ার্ড বা Edit mode লাগবে না।
+  const tbody=document.getElementById('rows'), tr=document.createElement('tr');
+  const values=[tbody.rows.length+1,'','','','','','','','',''];
+  values.forEach((v,i)=>{
+    const td=document.createElement('td');
+    if(i===6){td.className='status rejected';td.textContent='✕ Reject';td.onclick=()=>toggleStatus(td);}
+    else{td.dataset.passwordLocked='true';td.contentEditable='true';td.dataset.newRowFreeEdit='true';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+  recalculateTotals();
+  saveDataSilently();
+}
+function clearRows(){
+  if(!editMode){alert('সারি মুছতে আগে Edit বোতামে পাসওয়ার্ড দিন।');return;}
+  if(confirm('সব সারি মুছে ফেলবেন?')){
+    document.getElementById('rows').innerHTML='';
+    recalculateTotals();
+    saveDataSilently();
+  }
+}
+function saveData(){
+  try {
+    saveDataSilently();
+    if(localStorage.getItem('editableWorkLedger')) alert('তথ্য এই ব্রাউজারে সেভ হয়েছে। Refresh করলেও তথ্য থাকার কথা।');
+    else alert('সেভ করা যায়নি।');
+  } catch(err) { alert('ব্রাউজারের স্টোরেজে সেভ করা যায়নি। HTML ফাইল ডাউনলোড করে রাখুন।'); }
+}
+function loadData(){
+  const saved=localStorage.getItem('editableWorkLedger');
+  if(!saved){alert('কোনো সেভ করা তথ্য পাওয়া যায়নি।');return;}
+  const old=document.getElementById('workTable'), box=document.createElement('div');box.innerHTML=saved;
+  const restored=box.querySelector('table');
+  if(!restored){alert('সেভ করা তথ্য পড়া যাচ্ছে না।');return;}
+  old.replaceWith(restored);restored.id='workTable';
+  updateRefundValues();recalculateTotals();saveDataSilently();
+  alert('সেভ করা তথ্য খোলা হয়েছে।');
+}
+function exportHTML(){
+  const clone=document.documentElement.cloneNode(true);
+  const blob=new Blob(['<!DOCTYPE html>\n'+clone.outerHTML],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='editable_work_ledger.html';a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
