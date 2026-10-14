@@ -25,7 +25,7 @@
   tfoot td{background:#ecfdf5;font-weight:bold;height:48px}
   .status{cursor:pointer;font-weight:bold}
   .edit-lock-note{font-size:12px;color:#b45309;margin:0 0 10px;text-align:center}
-  .status.approved{color:#15803d}.status.rejected{color:#b91c1c}.status.under-process{color:#b45309}.status.received{color:#0369a1}
+  .status.approved{color:#15803d}.status.rejected{color:#b91c1c}.status.under-process{color:#b45309}
   .bottom-label{font-size:12px;color:#64748b;margin-top:12px}
   /* মোবাইল স্ক্রিনে পুরো হিসাব খাতা একসঙ্গে দেখানোর জন্য */
   @media screen and (max-width: 700px){
@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="sheet">
-  <h1 contenteditable="true" data-password-locked="true">কাজের হিসাব খাতা</h1>
+  <h1 contenteditable="true">কাজের হিসাব খাতা</h1>
   <div class="note">প্রথমে “Edit” বোতামে ক্লিক করে পাসওয়ার্ড দিন। পাসওয়ার্ড সঠিক হলে টেবিলের তথ্য সম্পাদনা করতে পারবেন।</div>
   <div class="edit-lock-note">ডিফল্ট পাসওয়ার্ড: 1234 — JavaScript-এর ADMIN_PASSWORD পরিবর্তন করে নিজের পাসওয়ার্ড সেট করুন।</div>
   <div class="toolbar">
@@ -112,17 +112,17 @@
       <tr>
         <td contenteditable="true">1</td><td contenteditable="true">Annapurna</td><td contenteditable="true">13/04/2025</td>
         <td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">17/04/2025</td>
-        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
+        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">2</td><td contenteditable="true">Laxmibhander</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">25/03/2026</td>
-        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
+        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">3</td><td contenteditable="true">Bhata</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">2000</td><td contenteditable="true">25/03/2026</td>
-        <td class="status approved">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
+        <td class="status approved" onclick="toggleStatus(this)">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
       </tr>
     </tbody>
     <tfoot><tr>
@@ -158,7 +158,7 @@ function startEditMode(){
   }
   if(!askEditPassword()) return;
   editMode = true;
-  document.querySelectorAll('[data-password-locked="true"]').forEach(el=>{
+  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
     if(!el.classList.contains('status')) el.contentEditable = 'true';
   });
   document.getElementById('finishEditBtn').style.display = 'inline-block';
@@ -167,17 +167,18 @@ function startEditMode(){
 
 function finishEditMode(){
   editMode = false;
-  document.querySelectorAll('[data-password-locked="true"]').forEach(el=>{
-    if(!el.classList.contains('status')) el.contentEditable = 'false';
+  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
+    if(el.dataset.newRowFreeEdit !== 'true') el.contentEditable = 'false';
   });
   document.getElementById('finishEditBtn').style.display = 'none';
   recalculateTotals();
   saveDataSilently();
+  scheduleGoogleAutoSave();
   alert('সম্পাদনা শেষ হয়েছে। পরিবর্তিত তথ্য সেভ করা হয়েছে।');
 }
 
 function lockEditableFields(){
-  document.querySelectorAll('[contenteditable="true"]').forEach(el=>{
+  document.querySelectorAll('#workTable [contenteditable="true"]').forEach(el=>{
     el.dataset.passwordLocked = 'true';
     el.contentEditable = 'false';
   });
@@ -188,7 +189,7 @@ function lockEditableFields(){
 document.addEventListener('click', function(event){
   const cell = event.target.closest('#workTable td, #workTable th');
   if(!cell) return;
-  if(!editMode){
+  if(!editMode && !cell.closest('tr')?.querySelector('[data-new-row-free-edit="true"]')){
     event.preventDefault();
     if(document.activeElement && document.activeElement.isContentEditable){
       document.activeElement.blur();
@@ -196,32 +197,20 @@ document.addEventListener('click', function(event){
   }
 }, true);
 
-// এক জায়গা থেকে status click handle করা হয়, তাই Google Sheet/Backup থেকে টেবিল বদলালেও কাজ করবে।
-document.addEventListener('click', function(event){
-  const statusCell = event.target.closest('#workTable td.status');
-  if (!statusCell) return;
-  event.preventDefault();
-  event.stopPropagation();
-  toggleStatus(statusCell);
-});
-
 function toggleStatus(cell){
   if(!editMode){
     alert('প্রথমে Edit বোতামে ক্লিক করে পাসওয়ার্ড দিন।');
     return;
   }
-  // চারটি অবস্থা: Reject → Approved → Under Process → Received → Reject
+  // তিনটি অবস্থা: Reject → Approved → Under Process → Reject
   if(cell.classList.contains('rejected')){
-    cell.classList.remove('rejected','under-process','received');
+    cell.classList.remove('rejected','under-process');
     cell.classList.add('approved'); cell.textContent='✓ Approved';
   } else if(cell.classList.contains('approved')){
-    cell.classList.remove('approved','rejected','received');
+    cell.classList.remove('approved','rejected');
     cell.classList.add('under-process'); cell.textContent='⏳ Under Process';
-  } else if(cell.classList.contains('under-process')){
-    cell.classList.remove('approved','rejected','under-process');
-    cell.classList.add('received'); cell.textContent='✓ Received';
   } else {
-    cell.classList.remove('approved','under-process','received');
+    cell.classList.remove('approved','under-process');
     cell.classList.add('rejected'); cell.textContent='✕ Reject';
   }
   updateRefundValues();
@@ -284,7 +273,6 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
   } catch(err) { console.error('সেভ করা তথ্য লোড করা যায়নি:', err); }
-  lockEditableFields();
   updateRefundValues();
   recalculateTotals();
   // একই HTML সিস্টেম অন্য ডিভাইসে খুললেও Google Sheet থেকে সর্বশেষ তথ্য আনবে
@@ -324,8 +312,8 @@ function addRow(){
   const values=[tbody.rows.length+1,'','','','','','','','',''];
   values.forEach((v,i)=>{
     const td=document.createElement('td');
-    if(i===6){td.className='status rejected';td.textContent='✕ Reject';}
-    else{td.dataset.passwordLocked='true';td.contentEditable='false';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
+    if(i===6){td.className='status rejected';td.textContent='✕ Reject';td.onclick=()=>toggleStatus(td);}
+    else{td.dataset.passwordLocked='true';td.contentEditable='true';td.dataset.newRowFreeEdit='true';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
     tr.appendChild(td);
   });
   tbody.appendChild(tr);
@@ -356,7 +344,6 @@ function loadData(){
   const restored=box.querySelector('table');
   if(!restored){alert('সেভ করা তথ্য পড়া যাচ্ছে না।');return;}
   old.replaceWith(restored);restored.id='workTable';
-  lockEditableFields();
   updateRefundValues();recalculateTotals();saveDataSilently();
   alert('সেভ করা তথ্য খোলা হয়েছে।');
 }
@@ -420,7 +407,7 @@ function loadBackupFile(event){
 // ================= GOOGLE SHEET URL =================
 // নিচের quotation marks-এর মধ্যে আপনার Apps Script Web App URL বসান.
 // URL অবশ্যই https://script.google.com/macros/s/.../exec আকারের হবে.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGnLj18zuiPBUsBsqmQnlmTcZj2J52Lv9wd9uaG_0dz5TahFSG6ZcnEFhtSHBhIpeeMQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6EHLvKstMezPdKg56DtHr4Of4QNU9WbEKbyk4GofI2Dh4Ia28TTKI8nW18Vjjej18OQ/exec";
 
 function getGoogleScriptUrl(){
   return String(GOOGLE_SCRIPT_URL || '').trim();
@@ -439,6 +426,8 @@ function googlePayload(){
   return {html:table.outerHTML,title:document.querySelector('h1')?.textContent||'কাজের হিসাব খাতা',updatedAt:new Date().toISOString()};
 }
 let googleAutoSaveTimer = null;
+let lastGoogleSaveRequestAt = 0;
+let googleLoadInProgress = false;
 function scheduleGoogleAutoSave(){
   if(!isGoogleScriptUrlReady()) return;
   clearTimeout(googleAutoSaveTimer);
@@ -448,6 +437,7 @@ function saveToGoogleSheet(isAuto=false){
   const url=getGoogleScriptUrl();
   if(!isGoogleScriptUrlReady()){setGoogleStatus('HTML-এর JavaScript-এ GOOGLE_SCRIPT_URL লাইনে আপনার Apps Script Web App URL বসান।',true);return;}
   try{
+    lastGoogleSaveRequestAt = Date.now();
     let frame=document.getElementById('googleSheetSaveFrame');
     if(!frame){frame=document.createElement('iframe');frame.id='googleSheetSaveFrame';frame.name='googleSheetSaveFrame';frame.style.display='none';document.body.appendChild(frame);}
     let form=document.getElementById('googleSheetSaveForm');
@@ -459,28 +449,40 @@ function saveToGoogleSheet(isAuto=false){
     saveDataSilently();
   }catch(err){setGoogleStatus('সেভ করা যায়নি: '+err.message,true);}
 }
-function loadFromGoogleSheet(){
+function loadFromGoogleSheet(silent=false){
+  if(googleLoadInProgress) return;
+  if(editMode || Date.now()-lastGoogleSaveRequestAt < 7000){ if(!silent) setGoogleStatus('সম্পাদনা/সেভ চলাকালীন Google Sheet থেকে লোড বন্ধ রাখা হয়েছে।'); return; }
   const url=getGoogleScriptUrl();
   if(!isGoogleScriptUrlReady()){setGoogleStatus('HTML-এর JavaScript-এ GOOGLE_SCRIPT_URL লাইনে আপনার Apps Script Web App URL বসান।',true);return;}
   const callback='workLedgerLoadCallback';
+  googleLoadInProgress=true;
   window[callback]=function(result){
     try{
       if(!result||!result.ok){setGoogleStatus((result&&result.message)||'Google Sheet থেকে তথ্য পাওয়া যায়নি।',true);return;}
       const box=document.createElement('div');box.innerHTML=result.payload?.html||'';
       const table=box.querySelector('table');
       if(!table||!table.querySelector('tbody')){setGoogleStatus('Google Sheet-এ বৈধ টেবিলের তথ্য নেই।',true);return;}
-      table.id='workTable';document.getElementById('workTable').replaceWith(table);
-      lockEditableFields();
-      updateRefundValues();recalculateTotals();saveDataSilently();
+      const current=document.getElementById('workTable');
+      if(current && current.outerHTML !== table.outerHTML){
+        table.id='workTable'; current.replaceWith(table); lockEditableFields();
+        updateRefundValues();recalculateTotals();saveDataSilently();
+      }
       setGoogleStatus('Google Sheet থেকে তথ্য লোড হয়েছে।');
     }catch(e){setGoogleStatus('তথ্য লোডে সমস্যা: '+e.message,true);}
-    finally{delete window[callback];const old=document.getElementById('googleSheetLoadScript');if(old)old.remove();}
+    finally{googleLoadInProgress=false;delete window[callback];const old=document.getElementById('googleSheetLoadScript');if(old)old.remove();}
   };
   const script=document.createElement('script');script.id='googleSheetLoadScript';
-  script.onerror=()=>{setGoogleStatus('Google Sheet থেকে সংযোগ করা যায়নি। Web App access “Anyone” করে Deploy হয়েছে কি না দেখুন।',true);delete window[callback];script.remove();};
+  script.onerror=()=>{googleLoadInProgress=false;setGoogleStatus('Google Sheet থেকে সংযোগ করা যায়নি। Web App access “Anyone” করে Deploy হয়েছে কি না দেখুন।',true);delete window[callback];script.remove();};
   script.src=url+(url.includes('?')?'&':'?')+'action=load&callback='+callback+'&_='+Date.now();
   document.body.appendChild(script);
 }
+
+// অন্য ডিভাইসে পরিবর্তন হলে সর্বোচ্চ ১৫ সেকেন্ডের মধ্যে লোড করার চেষ্টা।
+setInterval(()=>{
+  if(!editMode && Date.now()-lastGoogleSaveRequestAt>=7000 && isGoogleScriptUrlReady()){
+    loadFromGoogleSheet(true);
+  }
+},15000);
 </script>
 </body>
 </html>
