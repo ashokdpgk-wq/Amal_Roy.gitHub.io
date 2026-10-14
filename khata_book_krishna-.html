@@ -25,7 +25,7 @@
   tfoot td{background:#ecfdf5;font-weight:bold;height:48px}
   .status{cursor:pointer;font-weight:bold}
   .edit-lock-note{font-size:12px;color:#b45309;margin:0 0 10px;text-align:center}
-  .status.approved{color:#15803d}.status.rejected{color:#b91c1c}.status.under-process{color:#b45309}
+  .status.approved{color:#15803d}.status.rejected{color:#b91c1c}.status.under-process{color:#b45309}.status.received{color:#0369a1}
   .bottom-label{font-size:12px;color:#64748b;margin-top:12px}
   /* মোবাইল স্ক্রিনে পুরো হিসাব খাতা একসঙ্গে দেখানোর জন্য */
   @media screen and (max-width: 700px){
@@ -59,11 +59,18 @@
     th,td{padding:5px;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     table{min-width:0}
   }
+
+  .gs-panel{border:1px solid #93c5fd;background:#eff6ff;border-radius:8px;padding:10px;margin:0 0 12px}
+  .gs-panel label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px}
+  .gs-row{display:flex;gap:7px;flex-wrap:wrap}
+  .gs-row input{flex:1;min-width:220px;padding:9px;border:1px solid #94a3b8;border-radius:6px;font-size:13px}
+  #gsStatus{font-size:12px;margin-top:7px;color:#334155;overflow-wrap:anywhere}
+  @media print{.gs-panel{display:none}}
 </style>
 </head>
 <body>
 <div class="sheet">
-  <h1 contenteditable="true">কাজের হিসাব খাতা</h1>
+  <h1 contenteditable="true" data-password-locked="true">কাজের হিসাব খাতা</h1>
   <div class="note">প্রথমে “Edit” বোতামে ক্লিক করে পাসওয়ার্ড দিন। পাসওয়ার্ড সঠিক হলে টেবিলের তথ্য সম্পাদনা করতে পারবেন।</div>
   <div class="edit-lock-note">ডিফল্ট পাসওয়ার্ড: 1234 — JavaScript-এর ADMIN_PASSWORD পরিবর্তন করে নিজের পাসওয়ার্ড সেট করুন।</div>
   <div class="toolbar">
@@ -74,7 +81,18 @@
     <button class="secondary" onclick="saveData()">এই ব্রাউজারে সেভ</button>
     <button class="secondary" onclick="loadData()">সেভ করা তথ্য খুলুন</button>
     <button class="secondary" onclick="exportHTML()">HTML ফাইল ডাউনলোড</button>
+    <button class="secondary" onclick="downloadBackup()">Backup ডাউনলোড</button>
+    <button class="secondary" onclick="document.getElementById('backupFileInput').click()">Backup Load</button>
+    <input id="backupFileInput" type="file" accept=".json,application/json" style="display:none" onchange="loadBackupFile(event)">
     <button class="danger" onclick="clearRows()">সব সারি মুছুন</button>
+  </div>
+  <div class="gs-panel">
+    <strong>Google Sheet সংযোগ</strong>
+    <div class="gs-row">
+      <button type="button" class="secondary" onclick="saveToGoogleSheet()">Google Sheet-এ সেভ</button>
+      <button type="button" class="secondary" onclick="loadFromGoogleSheet()">Google Sheet থেকে খুলুন</button>
+    </div>
+    <div id="gsStatus">অন্য ডিভাইসে একই তথ্য দেখতে JavaScript-এর GOOGLE_SCRIPT_URL-এ Apps Script Web App URL বসান। সংযোগ থাকলে পেজ খোলার সময় তথ্য লোড হবে এবং পরিবর্তন স্বয়ংক্রিয়ভাবে সেভের অনুরোধ যাবে।</div>
   </div>
   <div class="table-wrap">
   <table id="workTable">
@@ -94,21 +112,22 @@
       <tr>
         <td contenteditable="true">1</td><td contenteditable="true">Annapurna</td><td contenteditable="true">13/04/2025</td>
         <td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">17/04/2025</td>
-        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
+        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">2</td><td contenteditable="true">Laxmibhander</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">25/03/2026</td>
-        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
+        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">3</td><td contenteditable="true">Bhata</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">2000</td><td contenteditable="true">25/03/2026</td>
-        <td class="status approved" onclick="toggleStatus(this)">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
+        <td class="status approved">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
       </tr>
     </tbody>
     <tfoot><tr>
-      <td colspan="4" contenteditable="true" style="text-align:right">মোট</     <td id="totalAgent" contenteditable="true">5000</td>
+      <td colspan="4" contenteditable="true" style="text-align:right">মোট</td>
+      <td id="totalAgent" contenteditable="true">5000</td>
       <td></td><td></td><td id="totalFirst" contenteditable="true">3000</td>
       <td id="totalSecond" contenteditable="true">2000</td>
       <td id="totalLast" contenteditable="true">2000</td>
@@ -139,7 +158,7 @@ function startEditMode(){
   }
   if(!askEditPassword()) return;
   editMode = true;
-  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
+  document.querySelectorAll('[data-password-locked="true"]').forEach(el=>{
     if(!el.classList.contains('status')) el.contentEditable = 'true';
   });
   document.getElementById('finishEditBtn').style.display = 'inline-block';
@@ -148,8 +167,8 @@ function startEditMode(){
 
 function finishEditMode(){
   editMode = false;
-  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
-    if(el.dataset.newRowFreeEdit !== 'true') el.contentEditable = 'false';
+  document.querySelectorAll('[data-password-locked="true"]').forEach(el=>{
+    if(!el.classList.contains('status')) el.contentEditable = 'false';
   });
   document.getElementById('finishEditBtn').style.display = 'none';
   recalculateTotals();
@@ -158,7 +177,7 @@ function finishEditMode(){
 }
 
 function lockEditableFields(){
-  document.querySelectorAll('#workTable [contenteditable="true"]').forEach(el=>{
+  document.querySelectorAll('[contenteditable="true"]').forEach(el=>{
     el.dataset.passwordLocked = 'true';
     el.contentEditable = 'false';
   });
@@ -169,7 +188,7 @@ function lockEditableFields(){
 document.addEventListener('click', function(event){
   const cell = event.target.closest('#workTable td, #workTable th');
   if(!cell) return;
-  if(!editMode && !cell.closest('tr')?.querySelector('[data-new-row-free-edit="true"]')){
+  if(!editMode){
     event.preventDefault();
     if(document.activeElement && document.activeElement.isContentEditable){
       document.activeElement.blur();
@@ -177,25 +196,38 @@ document.addEventListener('click', function(event){
   }
 }, true);
 
+// এক জায়গা থেকে status click handle করা হয়, তাই Google Sheet/Backup থেকে টেবিল বদলালেও কাজ করবে।
+document.addEventListener('click', function(event){
+  const statusCell = event.target.closest('#workTable td.status');
+  if (!statusCell) return;
+  event.preventDefault();
+  event.stopPropagation();
+  toggleStatus(statusCell);
+});
+
 function toggleStatus(cell){
   if(!editMode){
     alert('প্রথমে Edit বোতামে ক্লিক করে পাসওয়ার্ড দিন।');
     return;
   }
-  // তিনটি অবস্থা: Reject → Approved → Under Process → Reject
+  // চারটি অবস্থা: Reject → Approved → Under Process → Received → Reject
   if(cell.classList.contains('rejected')){
-    cell.classList.remove('rejected','under-process');
+    cell.classList.remove('rejected','under-process','received');
     cell.classList.add('approved'); cell.textContent='✓ Approved';
   } else if(cell.classList.contains('approved')){
-    cell.classList.remove('approved','rejected');
+    cell.classList.remove('approved','rejected','received');
     cell.classList.add('under-process'); cell.textContent='⏳ Under Process';
+  } else if(cell.classList.contains('under-process')){
+    cell.classList.remove('approved','rejected','under-process');
+    cell.classList.add('received'); cell.textContent='✓ Received';
   } else {
-    cell.classList.remove('approved','under-process');
+    cell.classList.remove('approved','under-process','received');
     cell.classList.add('rejected'); cell.textContent='✕ Reject';
   }
   updateRefundValues();
   recalculateTotals();
   saveDataSilently();
+  scheduleGoogleAutoSave();
 }
 
 function updateRefundValues(){
@@ -252,8 +284,14 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
   } catch(err) { console.error('সেভ করা তথ্য লোড করা যায়নি:', err); }
+  lockEditableFields();
   updateRefundValues();
   recalculateTotals();
+  // একই HTML সিস্টেম অন্য ডিভাইসে খুললেও Google Sheet থেকে সর্বশেষ তথ্য আনবে
+  if (typeof isGoogleScriptUrlReady === 'function' && isGoogleScriptUrlReady()) {
+    setGoogleStatus('Google Sheet থেকে সর্বশেষ তথ্য লোড হচ্ছে…');
+    loadFromGoogleSheet();
+  }
 });
 
 function saveDataSilently(){
@@ -276,6 +314,7 @@ document.addEventListener('input', function(event){
     if(event.target.closest('#rows tr')) updateRefundValues();
     recalculateTotals();
     saveDataSilently();
+    scheduleGoogleAutoSave();
   }
 });
 
@@ -285,13 +324,14 @@ function addRow(){
   const values=[tbody.rows.length+1,'','','','','','','','',''];
   values.forEach((v,i)=>{
     const td=document.createElement('td');
-    if(i===6){td.className='status rejected';td.textContent='✕ Reject';td.onclick=()=>toggleStatus(td);}
-    else{td.dataset.passwordLocked='true';td.contentEditable='true';td.dataset.newRowFreeEdit='true';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
+    if(i===6){td.className='status rejected';td.textContent='✕ Reject';}
+    else{td.dataset.passwordLocked='true';td.contentEditable='false';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
     tr.appendChild(td);
   });
   tbody.appendChild(tr);
   recalculateTotals();
   saveDataSilently();
+  scheduleGoogleAutoSave();
 }
 function clearRows(){
   if(!editMode){alert('সারি মুছতে আগে Edit বোতামে পাসওয়ার্ড দিন।');return;}
@@ -299,6 +339,7 @@ function clearRows(){
     document.getElementById('rows').innerHTML='';
     recalculateTotals();
     saveDataSilently();
+    scheduleGoogleAutoSave();
   }
 }
 function saveData(){
@@ -315,6 +356,7 @@ function loadData(){
   const restored=box.querySelector('table');
   if(!restored){alert('সেভ করা তথ্য পড়া যাচ্ছে না।');return;}
   old.replaceWith(restored);restored.id='workTable';
+  lockEditableFields();
   updateRefundValues();recalculateTotals();saveDataSilently();
   alert('সেভ করা তথ্য খোলা হয়েছে।');
 }
@@ -322,6 +364,122 @@ function exportHTML(){
   const clone=document.documentElement.cloneNode(true);
   const blob=new Blob(['<!DOCTYPE html>\n'+clone.outerHTML],{type:'text/html;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='editable_work_ledger.html';a.click();URL.revokeObjectURL(a.href);
+}
+
+// Backup JSON: টেবিল, শিরোনাম ও তারিখ একটি ফাইলে সংরক্ষণ করা হবে।
+function downloadBackup(){
+  try{
+    const backup={
+      backupType:'work-ledger-backup',
+      version:1,
+      savedAt:new Date().toISOString(),
+      title:document.querySelector('h1')?.textContent||'কাজের হিসাব খাতা',
+      tableHTML:document.getElementById('workTable').outerHTML
+    };
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    a.href=url;a.download='work_ledger_backup_'+stamp+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setGoogleStatus('Backup ফাইল ডাউনলোড হয়েছে। ফাইলটি নিরাপদে রেখে দিন।');
+  }catch(err){alert('Backup ডাউনলোড করা যায়নি: '+err.message);}
+}
+
+function loadBackupFile(event){
+  const file=event.target.files && event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const backup=JSON.parse(String(reader.result||''));
+      const tableHTML=backup.tableHTML || backup.html;
+      if(typeof tableHTML!=='string')throw new Error('এই ফাইলে হিসাব খাতার Backup নেই।');
+      const holder=document.createElement('div');holder.innerHTML=tableHTML;
+      const table=holder.querySelector('table');
+      if(!table || !table.querySelector('tbody'))throw new Error('Backup ফাইলের টেবিল সঠিক নয়।');
+      if(!confirm('বর্তমান হিসাবের বদলে Backup ফাইলের তথ্য Load করবেন? বর্তমান তথ্য আগে Backup করে রাখুন।'))return;
+      table.id='workTable';
+      document.getElementById('workTable').replaceWith(table);
+      if(backup.title){const h=document.querySelector('.sheet h1');if(h)h.textContent=backup.title;}
+      // পুনরায় এডিট লক ও হিসাবের ফাংশন চালু রাখুন।
+      table.querySelectorAll('[contenteditable="true"]').forEach(el=>{
+        if(!el.classList.contains('status')){el.dataset.passwordLocked='true';el.contentEditable='false';}
+      });
+      updateRefundValues();recalculateTotals();saveDataSilently();
+      setGoogleStatus('Backup ফাইল থেকে তথ্য Load হয়েছে। চাইলে Google Sheet-এ সেভ করে অন্য ডিভাইসেও পাঠাতে পারেন।');
+      alert('Backup সফলভাবে Load হয়েছে।');
+    }catch(err){alert('Backup Load করা যায়নি: '+err.message);}
+    finally{event.target.value='';}
+  };
+  reader.onerror=function(){alert('ফাইল পড়া যায়নি। আবার চেষ্টা করুন।');event.target.value='';};
+  reader.readAsText(file);
+}
+
+// ================= GOOGLE SHEET URL =================
+// নিচের quotation marks-এর মধ্যে আপনার Apps Script Web App URL বসান.
+// URL অবশ্যই https://script.google.com/macros/s/.../exec আকারের হবে.
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZOimxzbmax4OAS2jTtUvJV8v22O2M-lfECZp9omVgdakmlWDPAxFS1BvS90hhEGEMqQ/exec";
+
+function getGoogleScriptUrl(){
+  return String(GOOGLE_SCRIPT_URL || '').trim();
+}
+function isGoogleScriptUrlReady(){
+  const url=getGoogleScriptUrl();
+  return /^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/.test(url)
+    && !url.includes('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE');
+}
+function setGoogleStatus(message, error=false){
+  const el=document.getElementById('gsStatus');
+  if(el){el.textContent=message;el.style.color=error?'#b91c1c':'#166534';}
+}
+function googlePayload(){
+  const table=document.getElementById('workTable');
+  return {html:table.outerHTML,title:document.querySelector('h1')?.textContent||'কাজের হিসাব খাতা',updatedAt:new Date().toISOString()};
+}
+let googleAutoSaveTimer = null;
+function scheduleGoogleAutoSave(){
+  if(!isGoogleScriptUrlReady()) return;
+  clearTimeout(googleAutoSaveTimer);
+  googleAutoSaveTimer = setTimeout(()=>saveToGoogleSheet(true), 1800);
+}
+function saveToGoogleSheet(isAuto=false){
+  const url=getGoogleScriptUrl();
+  if(!isGoogleScriptUrlReady()){setGoogleStatus('HTML-এর JavaScript-এ GOOGLE_SCRIPT_URL লাইনে আপনার Apps Script Web App URL বসান।',true);return;}
+  try{
+    let frame=document.getElementById('googleSheetSaveFrame');
+    if(!frame){frame=document.createElement('iframe');frame.id='googleSheetSaveFrame';frame.name='googleSheetSaveFrame';frame.style.display='none';document.body.appendChild(frame);}
+    let form=document.getElementById('googleSheetSaveForm');
+    if(form)form.remove();
+    form=document.createElement('form');form.id='googleSheetSaveForm';form.method='POST';form.action=url;form.target='googleSheetSaveFrame';form.style.display='none';
+    const add=(name,value)=>{const input=document.createElement('input');input.name=name;input.value=value;form.appendChild(input);};
+    add('action','save');add('payload',JSON.stringify(googlePayload()));document.body.appendChild(form);form.submit();
+    setGoogleStatus(isAuto ? 'পরিবর্তন Google Sheet-এ সেভের অনুরোধ পাঠানো হয়েছে…' : 'Google Sheet-এ সেভের অনুরোধ পাঠানো হয়েছে। Apps Script ঠিকমতো Deploy করা থাকলে তথ্য সংরক্ষিত হবে।');
+    saveDataSilently();
+  }catch(err){setGoogleStatus('সেভ করা যায়নি: '+err.message,true);}
+}
+function loadFromGoogleSheet(){
+  const url=getGoogleScriptUrl();
+  if(!isGoogleScriptUrlReady()){setGoogleStatus('HTML-এর JavaScript-এ GOOGLE_SCRIPT_URL লাইনে আপনার Apps Script Web App URL বসান।',true);return;}
+  const callback='workLedgerLoadCallback';
+  window[callback]=function(result){
+    try{
+      if(!result||!result.ok){setGoogleStatus((result&&result.message)||'Google Sheet থেকে তথ্য পাওয়া যায়নি।',true);return;}
+      const box=document.createElement('div');box.innerHTML=result.payload?.html||'';
+      const table=box.querySelector('table');
+      if(!table||!table.querySelector('tbody')){setGoogleStatus('Google Sheet-এ বৈধ টেবিলের তথ্য নেই।',true);return;}
+      table.id='workTable';document.getElementById('workTable').replaceWith(table);
+      lockEditableFields();
+      updateRefundValues();recalculateTotals();saveDataSilently();
+      setGoogleStatus('Google Sheet থেকে তথ্য লোড হয়েছে।');
+    }catch(e){setGoogleStatus('তথ্য লোডে সমস্যা: '+e.message,true);}
+    finally{delete window[callback];const old=document.getElementById('googleSheetLoadScript');if(old)old.remove();}
+  };
+  const script=document.createElement('script');script.id='googleSheetLoadScript';
+  script.onerror=()=>{setGoogleStatus('Google Sheet থেকে সংযোগ করা যায়নি। Web App access “Anyone” করে Deploy হয়েছে কি না দেখুন।',true);delete window[callback];script.remove();};
+  script.src=url+(url.includes('?')?'&':'?')+'action=load&callback='+callback+'&_='+Date.now();
+  document.body.appendChild(script);
 }
 </script>
 </body>
