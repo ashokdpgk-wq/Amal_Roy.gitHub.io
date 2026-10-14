@@ -112,17 +112,17 @@
       <tr>
         <td contenteditable="true">1</td><td contenteditable="true">Annapurna</td><td contenteditable="true">13/04/2025</td>
         <td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">17/04/2025</td>
-        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
+        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">10/03/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">2</td><td contenteditable="true">Laxmibhander</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">1500</td><td contenteditable="true">25/03/2026</td>
-        <td class="status rejected" onclick="toggleStatus(this)">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
+        <td class="status rejected">✕</td><td contenteditable="true" class="num">1500</td><td contenteditable="true" class="num">1000</td><td contenteditable="true">03/02/2026</td>
       </tr>
       <tr>
         <td contenteditable="true">3</td><td contenteditable="true">Bhata</td><td contenteditable="true">21/03/2026</td>
         <td contenteditable="true" class="num">2000</td><td contenteditable="true" class="num">2000</td><td contenteditable="true">25/03/2026</td>
-        <td class="status approved" onclick="toggleStatus(this)">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
+        <td class="status approved">✓</td><td contenteditable="true" class="num"></td><td contenteditable="true" class="num"></td><td contenteditable="true"></td>
       </tr>
     </tbody>
     <tfoot><tr>
@@ -189,6 +189,7 @@ function lockEditableFields(){
 document.addEventListener('click', function(event){
   const cell = event.target.closest('#workTable td, #workTable th');
   if(!cell) return;
+  if(cell.classList.contains('status')) return;
   if(!editMode && !cell.closest('tr')?.querySelector('[data-new-row-free-edit="true"]')){
     event.preventDefault();
     if(document.activeElement && document.activeElement.isContentEditable){
@@ -198,8 +199,9 @@ document.addEventListener('click', function(event){
 }, true);
 
 function toggleStatus(cell){
+  if(!cell || !cell.classList.contains('status')) return;
   if(!editMode){
-    alert('প্রথমে Edit বোতামে ক্লিক করে পাসওয়ার্ড দিন।');
+    alert('প্রথমে Edit বোতামে ক্লিক করে পাসওয়ার্ড 1234 দিন।');
     return;
   }
   // তিনটি অবস্থা: Reject → Approved → Under Process → Reject
@@ -218,6 +220,11 @@ function toggleStatus(cell){
   saveDataSilently();
   scheduleGoogleAutoSave();
 }
+// Delegated click handler: works for both original rows and rows loaded from Google Sheet.
+document.addEventListener('click', function(event){
+  const statusCell = event.target.closest('#workTable td.status');
+  if(statusCell){ event.preventDefault(); event.stopPropagation(); toggleStatus(statusCell); }
+}, false);
 
 function updateRefundValues(){
   // Reject হলে জমা দেওয়া টাকার পরিমাণ Refund Value ঘরে বসবে; অন্য অবস্থায় ঘর ফাঁকা থাকবে।
@@ -312,7 +319,7 @@ function addRow(){
   const values=[tbody.rows.length+1,'','','','','','','','',''];
   values.forEach((v,i)=>{
     const td=document.createElement('td');
-    if(i===6){td.className='status rejected';td.textContent='✕ Reject';td.onclick=()=>toggleStatus(td);}
+    if(i===6){td.className='status rejected';td.textContent='✕ Reject';}
     else{td.dataset.passwordLocked='true';td.contentEditable='true';td.dataset.newRowFreeEdit='true';td.textContent=v;if([3,4,7,8].includes(i))td.classList.add('num');}
     tr.appendChild(td);
   });
@@ -449,30 +456,43 @@ function saveToGoogleSheet(isAuto=false){
     saveDataSilently();
   }catch(err){setGoogleStatus('সেভ করা যায়নি: '+err.message,true);}
 }
-function loadFromGoogleSheet(silent=false){
+function normalizeLedgerTable(table){
+  const clone=table.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+  clone.querySelectorAll('[data-password-locked]').forEach(el=>el.removeAttribute('data-password-locked'));
+  clone.querySelectorAll('[data-new-row-free-edit]').forEach(el=>el.removeAttribute('data-new-row-free-edit'));
+  return clone.innerHTML.replace(/\s+/g,' ').trim();
+}
+function loadFromGoogleSheet(silent=false, force=false){
   if(googleLoadInProgress) return;
-  if(editMode || Date.now()-lastGoogleSaveRequestAt < 7000){ if(!silent) setGoogleStatus('সম্পাদনা/সেভ চলাকালীন Google Sheet থেকে লোড বন্ধ রাখা হয়েছে।'); return; }
+  if(editMode){ if(!silent) setGoogleStatus('আগে Edit বন্ধ করুন, তারপর Google Sheet থেকে খুলুন।',true); return; }
+  if(!force && Date.now()-lastGoogleSaveRequestAt < 5000){ if(!silent) setGoogleStatus('এই ডিভাইসে সেভ হচ্ছে। কয়েক সেকেন্ড পরে আবার চেষ্টা করুন।'); return; }
   const url=getGoogleScriptUrl();
-  if(!isGoogleScriptUrlReady()){setGoogleStatus('HTML-এর JavaScript-এ GOOGLE_SCRIPT_URL লাইনে আপনার Apps Script Web App URL বসান।',true);return;}
+  if(!isGoogleScriptUrlReady()){setGoogleStatus('Google Apps Script URL সঠিক নয়।',true);return;}
   const callback='workLedgerLoadCallback';
   googleLoadInProgress=true;
   window[callback]=function(result){
     try{
       if(!result||!result.ok){setGoogleStatus((result&&result.message)||'Google Sheet থেকে তথ্য পাওয়া যায়নি।',true);return;}
       const box=document.createElement('div');box.innerHTML=result.payload?.html||'';
-      const table=box.querySelector('table');
+      const table=box.querySelector('#workTable')||box.querySelector('table');
       if(!table||!table.querySelector('tbody')){setGoogleStatus('Google Sheet-এ বৈধ টেবিলের তথ্য নেই।',true);return;}
       const current=document.getElementById('workTable');
-      if(current && current.outerHTML !== table.outerHTML){
-        table.id='workTable'; current.replaceWith(table); lockEditableFields();
+      if(!current || normalizeLedgerTable(current)!==normalizeLedgerTable(table)){
+        table.id='workTable';
+        current ? current.replaceWith(table) : document.querySelector('.sheet').appendChild(table);
+        lockEditableFields();
         updateRefundValues();recalculateTotals();saveDataSilently();
+        setGoogleStatus('অন্য ডিভাইসের নতুন তথ্য লোড হয়েছে। সর্বশেষ সেভ: '+(result.payload.updatedAt||'সময় দেওয়া নেই'));
+      } else {
+        setGoogleStatus('Google Sheet চেক করা হয়েছে — এই ডিভাইসে সর্বশেষ তথ্য আছে।');
       }
-      setGoogleStatus('Google Sheet থেকে তথ্য লোড হয়েছে।');
     }catch(e){setGoogleStatus('তথ্য লোডে সমস্যা: '+e.message,true);}
     finally{googleLoadInProgress=false;delete window[callback];const old=document.getElementById('googleSheetLoadScript');if(old)old.remove();}
   };
   const script=document.createElement('script');script.id='googleSheetLoadScript';
-  script.onerror=()=>{googleLoadInProgress=false;setGoogleStatus('Google Sheet থেকে সংযোগ করা যায়নি। Web App access “Anyone” করে Deploy হয়েছে কি না দেখুন।',true);delete window[callback];script.remove();};
+  script.onerror=()=>{googleLoadInProgress=false;setGoogleStatus('Google Sheet থেকে তথ্য আনা যায়নি। Apps Script-এর Web App access Anyone এবং সর্বশেষ version Deploy আছে কি না দেখুন।',true);delete window[callback];script.remove();};
   script.src=url+(url.includes('?')?'&':'?')+'action=load&callback='+callback+'&_='+Date.now();
   document.body.appendChild(script);
 }
@@ -482,7 +502,7 @@ setInterval(()=>{
   if(!editMode && Date.now()-lastGoogleSaveRequestAt>=7000 && isGoogleScriptUrlReady()){
     loadFromGoogleSheet(true);
   }
-},15000);
+},5000);
 </script>
 </body>
 </html>
