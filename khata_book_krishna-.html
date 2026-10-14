@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="sheet">
-  <h1 contenteditable="true">কাজের হিসাব খাতা</h1>
+  <h1>কাজের হিসাব খাতা</h1>
   <div class="note">প্রথমে “Edit” বোতামে ক্লিক করে পাসওয়ার্ড দিন। পাসওয়ার্ড সঠিক হলে টেবিলের তথ্য সম্পাদনা করতে পারবেন।</div>
   <div class="edit-lock-note">ডিফল্ট পাসওয়ার্ড: 1234 — JavaScript-এর ADMIN_PASSWORD পরিবর্তন করে নিজের পাসওয়ার্ড সেট করুন।</div>
   <div class="toolbar">
@@ -138,7 +138,7 @@
 </div>
 <script>
 // পাসওয়ার্ডটি নিজের মতো বদলান।
-const ADMIN_PASSWORD = '8343';
+const ADMIN_PASSWORD = '1234';
 let editMode = false;
 
 function askEditPassword(){
@@ -158,18 +158,14 @@ function startEditMode(){
   }
   if(!askEditPassword()) return;
   editMode = true;
-  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
-    if(!el.classList.contains('status')) el.contentEditable = 'true';
-  });
+  lockEditableFields();
   document.getElementById('finishEditBtn').style.display = 'inline-block';
   alert('Edit mode চালু হয়েছে। এখন টেবিলের তথ্য পরিবর্তন করতে পারবেন।');
 }
 
 function finishEditMode(){
   editMode = false;
-  document.querySelectorAll('#workTable [data-password-locked="true"]').forEach(el=>{
-    if(el.dataset.newRowFreeEdit !== 'true') el.contentEditable = 'false';
-  });
+  lockEditableFields();
   document.getElementById('finishEditBtn').style.display = 'none';
   recalculateTotals();
   saveDataSilently();
@@ -178,11 +174,47 @@ function finishEditMode(){
 }
 
 function lockEditableFields(){
-  document.querySelectorAll('#workTable [contenteditable="true"]').forEach(el=>{
+  const table = document.getElementById('workTable');
+  if(!table) return;
+  // Prevent an old saved HTML's contenteditable=true from surviving.
+  table.removeAttribute('contenteditable');
+  // Every existing table cell/header is locked by default, even if old localStorage/Sheet HTML says editable.
+  table.querySelectorAll('th, td').forEach(el=>{
+    // Free editing is allowed ONLY for cells inside a row created by the current Add Row button.
+    // Ignore stale cell-level flags that may have been saved in older HTML/Google Sheet data.
+    const isFreshRow = el.closest('tr')?.dataset.newRowFreeEdit === 'true';
+    if(isFreshRow && el.dataset.newRowFreeEdit === 'true') {
+      el.contentEditable = 'true';
+      el.removeAttribute('data-password-locked');
+      return;
+    }
+    el.removeAttribute('data-new-row-free-edit');
+    if(el.classList.contains('status')) {
+      el.removeAttribute('contenteditable');
+      el.contentEditable = 'false';
+      el.dataset.passwordLocked = 'true';
+      return;
+    }
     el.dataset.passwordLocked = 'true';
-    el.contentEditable = 'false';
+    if(editMode) { el.setAttribute('contenteditable','true'); }
+    else { el.removeAttribute('contenteditable'); el.contentEditable = 'false'; }
   });
 }
+
+// Extra protection: reject keyboard edits, paste, cut, and drop in locked existing cells.
+['beforeinput','keydown','paste','cut','drop'].forEach(type=>{
+  document.addEventListener(type, function(event){
+    const cell = event.target.closest && event.target.closest('#workTable td, #workTable th');
+    if(!cell) return;
+    if(cell.dataset.newRowFreeEdit === 'true' && cell.closest('tr')?.dataset.newRowFreeEdit === 'true') return;
+    if(!editMode || cell.dataset.passwordLocked !== 'true') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      return;
+    }
+  }, true);
+});
 
 // টেবিলে টাচ/ক্লিক করলেই কোনো edit tool বা keyboard খুলবে না।
 // কেবল Edit বোতামে সঠিক পাসওয়ার্ড দিয়ে mode চালু করলে ঘরগুলো সম্পাদনাযোগ্য হবে।
@@ -190,7 +222,7 @@ document.addEventListener('click', function(event){
   const cell = event.target.closest('#workTable td, #workTable th');
   if(!cell) return;
   if(cell.classList.contains('status')) return;
-  if(!editMode && !cell.closest('tr')?.querySelector('[data-new-row-free-edit="true"]')){
+  if(!editMode && !(cell.closest('tr')?.dataset.newRowFreeEdit === 'true')){
     event.preventDefault();
     if(document.activeElement && document.activeElement.isContentEditable){
       document.activeElement.blur();
@@ -280,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
   } catch(err) { console.error('সেভ করা তথ্য লোড করা যায়নি:', err); }
+  lockEditableFields();
   updateRefundValues();
   recalculateTotals();
   // একই HTML সিস্টেম অন্য ডিভাইসে খুললেও Google Sheet থেকে সর্বশেষ তথ্য আনবে
@@ -300,6 +333,7 @@ function saveDataSilently(){
     return false;
   }
 }
+window.addEventListener('pageshow', function(){ if(!editMode) lockEditableFields(); });
 window.addEventListener('pagehide', saveDataSilently);
 window.addEventListener('beforeunload', saveDataSilently);
 
@@ -314,9 +348,13 @@ document.addEventListener('input', function(event){
 });
 
 function addRow(){
-  // নতুন সারি যোগ করতে পাসওয়ার্ড বা Edit mode লাগবে না।
+  // নতুন সারি যোগ করার আগেও সঠিক পাসওয়ার্ড বাধ্যতামূলক।
+  const entered = prompt('নতুন সারি যোগ করতে পাসওয়ার্ড দিন:');
+  if(entered === null) return;
+  if(entered !== ADMIN_PASSWORD){ alert('ভুল পাসওয়ার্ড! নতুন সারি যোগ করা হয়নি।'); return; }
   const tbody=document.getElementById('rows'), tr=document.createElement('tr');
   const values=[tbody.rows.length+1,'','','','','','','','',''];
+  tr.dataset.newRowFreeEdit='true';
   values.forEach((v,i)=>{
     const td=document.createElement('td');
     if(i===6){td.className='status rejected';td.textContent='✕ Reject';}
@@ -395,6 +433,7 @@ function loadBackupFile(event){
       if(!table || !table.querySelector('tbody'))throw new Error('Backup ফাইলের টেবিল সঠিক নয়।');
       if(!confirm('বর্তমান হিসাবের বদলে Backup ফাইলের তথ্য Load করবেন? বর্তমান তথ্য আগে Backup করে রাখুন।'))return;
       table.id='workTable';
+      table.querySelectorAll('tr').forEach(row=>{ delete row.dataset.newRowFreeEdit; row.querySelectorAll('[data-new-row-free-edit]').forEach(cell=>cell.removeAttribute('data-new-row-free-edit')); });
       document.getElementById('workTable').replaceWith(table);
       if(backup.title){const h=document.querySelector('.sheet h1');if(h)h.textContent=backup.title;}
       // পুনরায় এডিট লক ও হিসাবের ফাংশন চালু রাখুন।
@@ -478,6 +517,8 @@ function loadFromGoogleSheet(silent=false, force=false){
       const box=document.createElement('div');box.innerHTML=result.payload?.html||'';
       const table=box.querySelector('#workTable')||box.querySelector('table');
       if(!table||!table.querySelector('tbody')){setGoogleStatus('Google Sheet-এ বৈধ টেবিলের তথ্য নেই।',true);return;}
+      // Data loaded from Google Sheet is existing data, never an unlocked new row.
+      table.querySelectorAll('tr').forEach(row=>{ delete row.dataset.newRowFreeEdit; row.querySelectorAll('[data-new-row-free-edit]').forEach(cell=>cell.removeAttribute('data-new-row-free-edit')); });
       const current=document.getElementById('workTable');
       if(!current || normalizeLedgerTable(current)!==normalizeLedgerTable(table)){
         table.id='workTable';
