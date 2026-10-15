@@ -163,9 +163,46 @@ p{
 
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
+
+<style>
+#rightSetup{position:fixed;right:10px;top:10px;z-index:9999;width:250px;max-height:calc(100vh - 20px);overflow-y:auto;box-sizing:border-box;padding:10px 12px 12px;background:#fff;border:2px solid #00695c;border-radius:10px;font-family:Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:13px;line-height:1.5;}
+#pdfViewBox{position:relative;top:auto;right:auto;z-index:auto;width:100%;box-sizing:border-box;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none;font-family:Arial,sans-serif;color:#222}
+#pdfViewBox .pdf-title{font-weight:700;color:#176b38;font-size:15px;margin-bottom:8px}
+#pdfViewBox button{width:100%;padding:9px 7px;border:0;border-radius:5px;color:#fff;cursor:pointer;margin:4px 0;font-weight:700}
+#pdfViewBox .preview-btn{background:#145da0}
+#pdfViewBox .download-btn{background:#176b38}
+#pdfViewBox .count-line{font-size:13px;line-height:1.6}
+#pdfViewBox .count-stats{display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap;font-size:12px;line-height:1.6}
+#pdfViewBox .count-status{display:block;font-size:11px;margin-top:3px;white-space:normal}
+#historyPanel{display:block;width:100%;box-sizing:border-box;border:0;border-top:1px solid #ccc;border-radius:0;background:transparent;padding:10px 0 0;margin-top:10px;}
+#historyPanel .history-heading{font-weight:700;color:#00695c;font-size:15px;margin-bottom:8px;}
+#historyPanel input,#historyPanel button{width:100%;box-sizing:border-box;}
+#historyPanel button{padding:7px;margin-top:6px;border:0;border-radius:4px;background:#00695c;color:white;font-weight:700;cursor:pointer;}
+#historyResult{display:none;width:100%;box-sizing:border-box;min-height:45px;padding:7px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;font-size:12px;margin-top:9px;line-height:1.8;overflow-wrap:anywhere;}
+@media print{#historyPanel{display:none!important}}
+@media(max-width:600px){#rightSetup{top:8px;right:8px;width:205px;max-height:calc(100vh - 16px);padding:8px 9px 10px}#pdfViewBox .pdf-title{font-size:13px}#pdfViewBox button{padding:7px 5px;font-size:12px}}
+@media print{#rightSetup{display:none!important}}
+</style>
+<div id="rightSetup">
+<div id="pdfViewBox">
+  <div class="pdf-title">📊 Content Count</div>
+  <div class="count-line"><div class="count-stats"><span>🖨️ Print: <b id="printCountOnline">0</b></span><span>📄 PDF: <b id="pdfCountOnline">0</b></span><span>🔢 Total: <b id="totalCountOnline">0</b></span></div><span id="countStatus" class="count-status" style="color:#555;">Loading...</span></div>
+</div>
+    <div id="historyPanel">
+      <div class="history-heading">📅 History</div>
+      <label for="historyDate" style="font-size:13px;display:block;margin-bottom:4px;">Select Date</label>
+      <input type="date" id="historyDate" style="margin:4px 0;">
+      <button onclick="loadHistory()">Show History</button>
+      <div id="historyResult">Select a date and tap “Show History”.</div>
+    </div>
+    <hr><button onclick="openAdminLogin()" style="width:100%;padding:7px;">Admin Login</button>
+    <div id="adminBox" style="display:none;margin-top:8px;"><input id="adminPassword" type="password" placeholder="Admin password" style="width:100%;box-sizing:border-box;"><button onclick="adminLogin()" style="width:100%;padding:7px;margin-top:5px;">Login</button><div id="adminStatus" style="font-size:12px;color:#b00;margin-top:4px;"></div></div>
+    <div id="adminPanel" style="display:none;margin-top:8px;"><button onclick="deleteAllCounts()" style="width:100%;padding:7px;background:#a00;color:white;border:0;">Delete All Counts</button><button onclick="adminLogout()" style="width:100%;padding:7px;margin-top:5px;">Logout</button></div>
+</div>
     <div class="form-panel" style="width:300px;position:fixed;left:0;top:0;height:90vh;overflow:auto;background:#fff;border-right:2px solid #000;padding:10px;">
         <br><b>Certificate Details</b><br>
     <input placeholder="Certificate_No" oninput="set('Certificate_No',this.value)">
@@ -207,7 +244,8 @@ p{
    <input placeholder="Corresponding_Date" oninput="set('Corresponding_Date',this.value)"><br>
    <input placeholder="Issued_remark" oninput="set('Issued_remark',this.value)"><br>
    <input placeholder="bottom_no" oninput="set('bottom_no',this.value)"><br><br>
- <button onclick="window.print()" style="width:100%;padding:10px;background:#000;color:#fff;border:none;">Print</button>
+ <button onclick="printCertificate()" style="width:100%;padding:10px;background:#000;color:#fff;border:none;">Print</button>
+
 </div>
 
 <div class="page" style="margin-left:280px;">
@@ -342,6 +380,128 @@ function uploadImage(event,id){
     reader.readAsDataURL(file);
   }
 }
+
+// ===== ONLINE PRINT/PDF COUNT + HISTORY + ADMIN =====
+const COUNT_API_URL = "https://script.google.com/macros/s/AKfycbwcbLzNaTNgmkg3Qrs18_Sg5iIb1WGXAJZi-q9pLTv4o3Lhko6i2rIYlvvJW2X9yQux/exec";
+let countBusy = false;
+let printCountInProgress = false;
+async function apiJSON(url, options={}) {
+  const response = await fetch(url, Object.assign({redirect:"follow",cache:"no-store"}, options));
+  const responseText = await response.text();
+  if (!responseText) throw new Error("Empty API response");
+  return JSON.parse(responseText);
+}
+function showOnlineCounts(data) {
+  if (!data) return;
+  if (data.print !== undefined) document.getElementById("printCountOnline").textContent = Number(data.print)||0;
+  if (data.pdf !== undefined) document.getElementById("pdfCountOnline").textContent = Number(data.pdf)||0;
+  if (data.total !== undefined) document.getElementById("totalCountOnline").textContent = Number(data.total)||0;
+}
+async function updateOnlineCount(type) {
+  if (countBusy) return false;
+  countBusy = true;
+  document.getElementById("countStatus").textContent = "Updating...";
+  try {
+    const data = await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"increment",type:type})});
+    if (!data.ok) throw new Error(data.error||"Update failed");
+    showOnlineCounts(data);
+    document.getElementById("countStatus").textContent = "Saved";
+    return true;
+  } catch(err) {
+    console.error(err);
+    document.getElementById("countStatus").textContent = "API error";
+    return false;
+  } finally { countBusy = false; }
+}
+async function loadOnlineCount() {
+  try {
+    const data = await apiJSON(COUNT_API_URL+"?action=get&_="+Date.now());
+    if (!data.ok) throw new Error(data.error||"Load failed");
+    showOnlineCounts(data);
+    document.getElementById("countStatus").textContent = "Today: "+(data.date||"");
+  } catch(err) {
+    console.error(err);
+    document.getElementById("countStatus").textContent = "Offline / API unavailable";
+  }
+}
+async function loadHistory() {
+  const date=document.getElementById("historyDate").value, box=document.getElementById("historyResult");
+  box.style.display="block";
+  if(!date){box.textContent="Please select a date.";return;}
+  box.textContent="Loading...";
+  try {
+    const data=await apiJSON(COUNT_API_URL+"?action=history&date="+encodeURIComponent(date)+"&_="+Date.now());
+    if(!data.ok) throw new Error(data.error||"History unavailable");
+    box.innerHTML="📅 "+data.date+"<br>🖨️ Print: <b>"+(Number(data.print)||0)+"</b> &nbsp; 📄 PDF: <b>"+(Number(data.pdf)||0)+"</b> &nbsp; 🔢 Total: <b>"+(Number(data.total)||0)+"</b>";
+  } catch(err) {box.textContent="History unavailable";}
+}
+function openAdminLogin(){document.getElementById("adminBox").style.display="block";document.getElementById("adminPassword").focus();}
+async function adminLogin() {
+  const password=document.getElementById("adminPassword").value.trim(), status=document.getElementById("adminStatus");
+  if(!password){status.textContent="Password দিন";return;}
+  status.textContent="Checking...";
+  try {
+    const data=await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"login",password:password})});
+    if(!data.ok) throw new Error(data.error||"Wrong password");
+    sessionStorage.setItem("countAdminToken",data.token);
+    document.getElementById("adminBox").style.display="none";
+    document.getElementById("adminPanel").style.display="block";
+    status.textContent="";
+  } catch(err) {status.textContent="❌ Wrong password / API error";}
+}
+async function deleteAllCounts() {
+  const token=sessionStorage.getItem("countAdminToken"), status=document.getElementById("countStatus");
+  if(!token){alert("আগে Admin Login করুন।");openAdminLogin();return;}
+  if(!confirm("সব দিনের Print/PDF/Total Count এবং History মুছে ফেলতে চান?"))return;
+  status.textContent="Deleting...";
+  try {
+    const data=await apiJSON(COUNT_API_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"deleteAll",token:token})});
+    if(!data.ok){sessionStorage.removeItem("countAdminToken");throw new Error(data.error||"Delete failed");}
+    showOnlineCounts({print:0,pdf:0,total:0});
+    document.getElementById("historyResult").style.display="none";
+    status.textContent="Deleted successfully";
+    adminLogout();
+    alert("সব Count এবং History মুছে দেওয়া হয়েছে।");
+    await loadOnlineCount();
+  } catch(err) {console.error(err);status.textContent="Delete failed";alert("Delete failed: "+(err.message||err));}
+}
+function adminLogout(){sessionStorage.removeItem("countAdminToken");document.getElementById("adminPanel").style.display="none";document.getElementById("adminBox").style.display="none";document.getElementById("adminPassword").value="";}
+function pdfOptions(){return {margin:0,filename:"Marriage_Certificate.pdf",image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};}
+async function previewPDF() {
+  if(typeof html2pdf==="undefined"){alert("PDF library load হয়নি। Internet connection পরীক্ষা করুন।");return;}
+  const ok=await updateOnlineCount("pdf");
+  if(!ok){alert("Online PDF count update failed. PDF preview খোলা হয়নি।");return;}
+  try {
+    const blob=await html2pdf().set(pdfOptions()).from(document.querySelector(".page")).outputPdf("blob");
+    const url=URL.createObjectURL(blob);
+    window.open(url,"_blank","noopener");
+  } catch(err){console.error(err);alert("PDF preview তৈরি করা যায়নি।");}
+}
+async function downloadPDF() {
+  const ok=await updateOnlineCount("pdf");
+  if(!ok){alert("Online PDF count update failed. PDF was not generated.");return;}
+  if(typeof html2pdf==="undefined"){alert("PDF library load হয়নি। Internet connection পরীক্ষা করুন।");return;}
+  await html2pdf().set(pdfOptions()).from(document.querySelector(".page")).save();
+}
+async function printCertificate() {
+  if(printCountInProgress)return;
+  printCountInProgress=true;
+  try {
+    const ok=await updateOnlineCount("print");
+    if(!ok){alert("Online Print count update failed. Print was not started.");return;}
+    await new Promise(resolve=>setTimeout(resolve,150));
+    window.print();
+  } finally {setTimeout(()=>{printCountInProgress=false;},500);}
+}
+document.addEventListener("keydown",function(e){
+  if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==="p"){
+    e.preventDefault();
+    printCertificate();
+  }
+});
+loadOnlineCount();
+setInterval(loadOnlineCount,15000);
+
 </script>
 </body>
 </html>
