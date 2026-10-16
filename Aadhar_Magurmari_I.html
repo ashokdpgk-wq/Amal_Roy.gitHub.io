@@ -1,626 +1,453 @@
-<!DOCTYPE html><html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aadhaar Card Search System</title><style>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aadhaar Card Search System</title><style>*{box-sizing:border-box;font-family:Arial,sans-serif}body{margin:0;background:#eef2f7;padding:20px}.container{max-width:1000px;margin:auto}.header{background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;padding:25px;border-radius:15px;text-align:center;margin-bottom:20px}.header h1{margin:0;font-size:30px}.header p{margin:6px 0 0}.searchBox,.form{background:#fff;padding:20px;border-radius:15px;box-shadow:0 5px 15px #0001;margin-bottom:20px}#searchInput,.form input,.form select{width:100%;padding:14px;margin-bottom:15px;border:2px solid #ddd;border-radius:10px;font-size:16px}#searchInput{border-color:#1976d2}.counter{display:flex;gap:15px}.counter div{flex:1;background:#f7f7f7;padding:15px;border-radius:10px;text-align:center;font-weight:bold}.counter span{display:block;font-size:28px;margin-top:5px;color:#1565c0}.buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}.buttons button,.save,.editBtn{border:0;border-radius:10px;padding:13px;font-weight:bold;color:#fff;cursor:pointer}.add{background:#16a34a}.backup{background:#2563eb}.restore{background:#ea580c}.delete{background:#dc2626}.form{display:none}.save{width:100%;background:#16a34a;font-size:16px}.photoPreview{display:none;width:140px;height:140px;object-fit:cover;border-radius:12px;border:3px solid #1976d2;margin:5px 0 15px;background:#f1f5f9;padding:2px}.card{padding:18px;border-radius:15px;color:#fff;font-weight:bold;box-shadow:0 5px 15px #0002;margin-bottom:15px}.cardRow{display:flex;justify-content:space-between;align-items:center;gap:20px}.customerInfo{display:flex;align-items:center;gap:15px}.customerPhoto,.noPhoto{width:90px;height:90px;border-radius:12px;object-fit:cover;background:#fff;border:3px solid #fffc;flex-shrink:0}.noPhoto{display:flex;align-items:center;justify-content:center;font-size:32px}.name{font-size:20px}.aadhaar{text-align:right;line-height:26px}.editBtn{background:#fff;color:#1565c0;margin-top:8px}.noRecord{display:none;background:#fff;padding:20px;border-radius:15px;text-align:center;color:red;font-weight:bold}@media(max-width:700px){body{padding:10px}.buttons{grid-template-columns:repeat(2,1fr)}.counter{flex-direction:column}.cardRow{flex-direction:column;align-items:flex-start}.aadhaar{text-align:left}.customerPhoto,.noPhoto{width:75px;height:75px}}label{display:block;font-weight:bold;margin-bottom:8px}small{font-weight:bold}
+.cropModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;padding:15px}.cropPanel{width:min(95vw,520px);background:#fff;border-radius:16px;padding:16px;box-shadow:0 10px 40px #0008}.cropPanel h3{margin:0 0 10px;text-align:center;color:#1565c0}.cropArea{width:100%;aspect-ratio:1/1;background:#111;overflow:hidden;position:relative;border-radius:12px;touch-action:none;display:flex;align-items:center;justify-content:center}.cropArea img{position:absolute;max-width:none;user-select:none;-webkit-user-drag:none;transform-origin:center center}.cropFrame{position:absolute;inset:0;border:3px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}.cropHint{text-align:center;font-size:13px;color:#555;margin:9px 0}.zoomRow{display:flex;align-items:center;gap:10px;margin:8px 0 14px}.zoomRow input{flex:1}.cropActions{display:flex;gap:10px}.cropActions button{flex:1;border:0;border-radius:10px;padding:12px;font-weight:bold;cursor:pointer}.cropApply{background:#16a34a;color:#fff}.cropCancel{background:#e5e7eb;color:#111}.photoBtns{display:flex;gap:10px;margin-bottom:10px}.photoBtns>button{flex:1;border:0;border-radius:10px;padding:12px;font-weight:bold;color:#fff;background:#1976d2;cursor:pointer}.photoBtns>button:nth-child(2){background:#64748b}.photoBtns label{flex:1;margin:0}.photoBtns label button{width:100%;border:0;border-radius:10px;padding:12px;font-weight:bold;color:#fff;background:#1976d2;cursor:pointer}.photoBtns label:nth-child(2) button{background:#64748b}.photoBtns input{display:none}
+</style></head><body><div class="container"><div class="header"><h1>AADHAAR CARD SEARCH SYSTEM</h1><p>Search • Add • Backup • Restore • Edit</p></div><div class="searchBox"><input id="searchInput" placeholder="Search Name or Aadhaar Number"><div class="counter"><div>Total Record<span id="totalCount">0</span></div><div>Search Result<span id="searchCount">0</span></div></div></div><div class="buttons"><button class="add" id="addBtn">Add Customer</button><button class="backup" id="backupBtn">Backup</button><button class="restore" id="restoreBtn">Restore</button><button class="delete" id="deleteBtn">Delete All</button><input id="restoreFile" type="file" accept=".json,application/json" hidden></div><div class="form" id="form"><input id="customerName" placeholder="Customer Name"><input id="aadhaarInput" maxlength="12" inputmode="numeric" placeholder="12 Digit Aadhaar Number"><select id="relationType"><option>Father</option><option>Mother</option><option>Husband</option><option>C/O</option></select><input id="relationName" placeholder="Relation Name"><label>Customer Photo</label><div class="photoBtns"><button type="button" id="cameraBtn">📷 Camera Photo</button><button type="button" id="galleryBtn">🖼️ Gallery</button><input id="cameraPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden><input id="customerPhoto" type="file" accept="image/jpeg,image/png,image/webp" hidden></div><img id="photoPreview" class="photoPreview"><button id="saveBtn" class="save">Save Customer</button></div><div id="result"></div><div id="noRecord" class="noRecord">No Record Found</div></div><div class="cropModal" id="cropModal"><div class="cropPanel"><h3>✂️ Crop Photo</h3><div class="cropArea" id="cropArea"><img id="cropImage"><div class="cropFrame"></div></div><div class="cropHint">ছবিটি আঙুল দিয়ে সরান • Zoom করে প্রয়োজনমতো Crop করুন</div><div class="zoomRow"><span>🔍</span><input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1"><span id="zoomValue">1.00×</span></div><div class="cropActions"><button type="button" class="cropCancel" id="cropCancel">Cancel</button><button type="button" class="cropApply" id="cropApply">✓ Apply Crop</button></div></div></div>
+  <script src="Auto_Load_aadhaar-data.js"></script>
+<script>
+let data=[];
+let editingIndex=-1;
+let selectedPhoto='';
+const EDIT_PASSWORD='1234';
 
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:Arial,sans-serif;
+const $=id=>document.getElementById(id);
+const searchInput=$('searchInput'),result=$('result'),totalCount=$('totalCount'),searchCount=$('searchCount'),noRecord=$('noRecord');
+const form=$('form'),customerName=$('customerName'),aadhaarInput=$('aadhaarInput'),relationType=$('relationType'),relationName=$('relationName');
+const saveBtn=$('saveBtn'),photoPreview=$('photoPreview');
+const backupBtn=$('backupBtn'),restoreBtn=$('restoreBtn'),restoreFile=$('restoreFile'),deleteBtn=$('deleteBtn');
+
+function formatAadhaar(n){
+  n=String(n||'').replace(/\D/g,'');
+  return n.length===12?n.replace(/(\d{4})(\d{4})(\d{4})/,'$1-$2-$3'):n;
+}
+function rainbow(i){
+  const h=(i*137.5)%360;
+  return `linear-gradient(135deg,hsl(${h},85%,65%),hsl(${(h+40)%360},85%,50%))`;
+}
+function esc(v){
+  return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function normalizeRecords(records){
+  if(!Array.isArray(records)) return [];
+  return records.map((x,i)=>{
+    const raw=String(x?.raw ?? x?.aadhaar ?? x?.aadhaarNo ?? x?.aadhaarNumber ?? x?.Aadhaar ?? '').replace(/\D/g,'');
+    return {
+      id:String(x?.id || ('A'+Date.now().toString(36)+i.toString(36)+Math.random().toString(36).slice(2,9))),
+      name:String(x?.name ?? x?.customerName ?? x?.Name ?? '').trim(),
+      relationType:String(x?.relationType ?? x?.relation ?? 'Father'),
+      relationName:String(x?.relationName ?? x?.fatherName ?? x?.relation_name ?? ''),
+      raw,
+      format:formatAadhaar(raw),
+      photo:typeof x?.photo==='string' ? x.photo : ''
+    };
+  }).filter(x=>x.name && x.raw.length===12);
 }
 
-body{
-background:#eef2f7;
-padding:20px;
+/* =========================================================
+   DATA SOURCE: aadhaar-data.js ONLY
+   No IndexedDB and no localStorage.
+   HTML loads DEFAULT_DATA from the linked aadhaar-data.js file.
+   Add/Edit/Delete/Restore changes remain in the current page session.
+   Backup downloads the current data as JSON.
+========================================================= */
+function persist(){
+  data=normalizeRecords(data);
+  return true;
+}
+function loadSavedData(){
+  return normalizeRecords(JSON.parse(JSON.stringify(DEFAULT_DATA)));
 }
 
-.container{
-max-width:1000px;
-margin:auto;
-}
-
-.header{
-background:linear-gradient(135deg,#1565c0,#0d47a1);
-color:#fff;
-padding:25px;
-border-radius:15px;
-text-align:center;
-box-shadow:0 5px 15px rgba(0,0,0,.15);
-margin-bottom:20px;
-}
-
-.header h1{
-font-size:30px;
-}
-
-.header p{
-margin-top:5px;
-font-size:15px;
-}
-
-.searchBox{
-background:#fff;
-padding:20px;
-border-radius:15px;
-box-shadow:0 5px 15px rgba(0,0,0,.08);
-margin-bottom:20px;
-}
-
-#searchInput{
-width:100%;
-padding:15px;
-font-size:17px;
-border:2px solid #1976d2;
-border-radius:10px;
-outline:none;
-}
-
-.counter{
-display:flex;
-gap:15px;
-margin-top:15px;
-}
-
-.counter div{
-flex:1;
-background:#f7f7f7;
-padding:15px;
-border-radius:10px;
-text-align:center;
-font-weight:bold;
-}
-
-.counter span{
-display:block;
-font-size:28px;
-margin-top:5px;
-color:#1565c0;
-}
-
-.buttons{
-display:grid;
-grid-template-columns:repeat(4,1fr);
-gap:10px;
-margin-bottom:20px;
-}
-
-.buttons button{
-padding:14px;
-border:none;
-border-radius:10px;
-font-size:15px;
-font-weight:bold;
-cursor:pointer;
-color:#fff;
-}
-
-#addBtn{background:#16a34a;}
-#backupBtn{background:#2563eb;}
-#restoreBtn{background:#ea580c;}
-#deleteBtn{background:#dc2626;}
-
-.form{
-display:none;
-background:#fff;
-padding:20px;
-border-radius:15px;
-box-shadow:0 5px 15px rgba(0,0,0,.08);
-margin-bottom:20px;
-}
-
-.form input{
-width:100%;
-padding:14px;
-margin-bottom:15px;
-border:2px solid #ddd;
-border-radius:10px;
-font-size:16px;
-}
-
-#saveBtn{
-width:100%;
-padding:15px;
-background:#16a34a;
-color:#fff;
-border:none;
-border-radius:10px;
-font-size:17px;
-cursor:pointer;
-}
-
-#result{
-display:flex;
-flex-direction:column;
-gap:15px;
-}
-
-.card{
-padding:18px;
-border-radius:15px;
-color:#fff;
-font-weight:bold;
-box-shadow:0 5px 15px rgba(0,0,0,.12);
-}
-
-.cardRow{
-display:flex;
-justify-content:space-between;
-align-items:center;
-gap:20px;
-}
-
-.name{
-font-size:20px;
-}
-
-.aadhaar{
-text-align:right;
-line-height:28px;
-}
-
-#noRecord{
-display:none;
-background:#fff;
-padding:20px;
-border-radius:15px;
-text-align:center;
-color:red;
-font-size:18px;
-font-weight:bold;
-}
-
-@media(max-width:700px){
-
-.buttons{
-grid-template-columns:repeat(2,1fr);
-}
-
-.counter{
-flex-direction:column;
-}
-
-.cardRow{
-flex-direction:column;
-align-items:flex-start;
-}
-
-.aadhaar{
-text-align:left;
-}
-
-}
-
-.form select{
-width:100%;
-padding:14px;
-margin-bottom:15px;
-border:2px solid #ddd;
-border-radius:10px;
-font-size:16px;
-background:#fff;
-}
-
-</style></head><body><div class="container"><div class="header">
-<h1>AADHAAR CARD SEARCH SYSTEM</h1>
-<p>Search • Add • Backup • Restore</p>
-</div><div class="searchBox"><input
-type="text"
-id="searchInput"
-placeholder="Search Name or Aadhaar Number">
-
-<div class="counter"><div>
-Total Record
-<span id="totalCount">0</span>
-</div><div>
-Search Result
-<span id="searchCount">0</span>
-</div></div></div><div class="buttons"><button id="addBtn">Add Customer</button>
-
-<button id="backupBtn">Backup</button>
-
-<button id="restoreBtn">Restore</button>
-
-<button id="deleteBtn">Delete All</button>
-
-<input type="file"
-id="restoreFile"
-accept=".json,.js"
-hidden>
-
-</div><div class="form" id="form"><input
-type="text"
-id="customerName"
-placeholder="Customer Name">
-
-<input
-type="text"
-id="aadhaarInput"
-maxlength="12"
-placeholder="12 Digit Aadhaar Number">
-
-<select id="relationType">
-    <option value="Father">Father</option>
-    <option value="Mother">Mother</option>
-    <option value="Husband">Husband</option>
-    <option value="C/O">C/O</option>
-</select><input
-type="text"
-id="relationName"
-placeholder="Relation Name">
-
-<button id="saveBtn">
-Save Customer
-</button></div><div id="result"></div><div id="noRecord">
-No Record Found
-</div><script src="aadhaar_backup_magurmari_I.js"></script><script>
-
-let data;
-
-/*
-====================================================
-NO LOCAL STORAGE
-====================================================
-
-Data is loaded only from:
-1. window.aadhaarData from the JS backup file
-2. Built-in data below
-
-Nothing is read from or written to localStorage.
-*/
-
-if (Array.isArray(window.aadhaarData)) {
-
-    data = window.aadhaarData;
-
-} else {
-
-    data = [
-
-        {
-            "name": "JYOTSNA ROY",
-            "relationType": "Husband",
-            "relationName": "DHIRENDRA NATH ROY",
-            "raw": "203916859604",
-            "format": "2039-1685-9604"
-        },
-
-        {
-            "name": "DEBBRATA ROY",
-            "relationType": "Father",
-            "relationName": "DHIRENDRA NATH ROY",
-            "raw": "848772006383",
-            "format": "8487-7200-6383"
-        }
-
-    ];
-
-}
-
-const searchInput=document.getElementById("searchInput");
-const result=document.getElementById("result");
-const totalCount=document.getElementById("totalCount");
-const searchCount=document.getElementById("searchCount");
-const noRecord=document.getElementById("noRecord");
-
-const form=document.getElementById("form");
-const addBtn=document.getElementById("addBtn");
-
-addBtn.onclick=function(){
-
-form.style.display=
-form.style.display=="block"?
-"none":"block";
-
-};
-
-function updateTotal(){
-
-totalCount.innerHTML=data.length;
-
-}
-
-updateTotal();
-
-function formatAadhaar(num){
-
-return num.replace(
-/(\d{4})(\d{4})(\d{4})/,
-"$1-$2-$3"
-);
-
-}
-
-function rainbow(index){
-
-let hue=(index*137.5)%360;
-
-return `linear-gradient(
-135deg,
-hsl(${hue},85%,65%),
-hsl(${(hue+40)%360},85%,50%)
-)`;
-
-}
+function updateTotal(){totalCount.textContent=data.length}
 
 function showData(list){
-
-result.innerHTML="";
-
-if(list.length==0){
-
-searchCount.innerHTML=0;
-noRecord.style.display="block";
-return;
-
+  result.innerHTML='';
+  searchCount.textContent=list.length;
+  if(!list.length){noRecord.style.display='block';return}
+  noRecord.style.display='none';
+  list.forEach(item=>{
+    const idx=data.indexOf(item);
+    const photo=item.photo
+      ? `<img src="${esc(item.photo)}" class="customerPhoto" alt="Customer Photo">`
+      : `<div class="noPhoto">👤</div>`;
+    result.insertAdjacentHTML('beforeend',`
+      <div class="card" style="background:${rainbow(idx<0?0:idx)}">
+        <div class="cardRow">
+          <div class="customerInfo">
+            ${photo}
+            <div class="name">${esc(item.name)}<br>
+              <small>${esc(item.relationType||'')} : ${esc(item.relationName||'')}</small>
+            </div>
+          </div>
+          <div class="aadhaar">
+            ${esc(item.raw||'')}<br>${esc(item.format||formatAadhaar(item.raw))}<br>
+            <button type="button" class="editBtn" onclick="editCustomer(${idx})">✏️ Edit</button>
+          </div>
+        </div>
+      </div>`);
+  });
 }
 
-noRecord.style.display="none";
-searchCount.innerHTML=list.length;
+function search(){
+  const q=searchInput.value.trim().toLowerCase();
+  if(!q){result.innerHTML='';searchCount.textContent='0';noRecord.style.display='none';return}
+  const nums=q.replace(/\D/g,'');
+  const list=data.filter(item=>{
+    const name=String(item.name||'').toLowerCase();
+    const raw=String(item.raw||'').replace(/\D/g,'');
+    const fmt=String(item.format||'').replace(/\D/g,'');
+    return nums.length ? (raw.includes(nums)||fmt.includes(nums)) : name.startsWith(q);
+  });
+  showData(list);
+}
 
-list.forEach((item,index)=>{
+function clearForm(){
+  customerName.value='';
+  aadhaarInput.value='';
+  relationType.value='Father';
+  relationName.value='';
+  customerPhoto.value='';
+  if(cameraPhoto) cameraPhoto.value='';
+  selectedPhoto='';
+  photoPreview.src='';
+  photoPreview.style.display='none';
+  editingIndex=-1;
+  saveBtn.textContent='Save Customer';
+}
 
-result.innerHTML+=`
-
-<div class="card"
-style="background:${rainbow(index)}">
-
-<div class="cardRow">
-
-<div class="name">
-${item.name}
-<br>
-<small>${item.relationType} : ${item.relationName}</small>
-</div>
-
-<div class="aadhaar">
-
-${item.raw}
-
-<br>
-
-${item.format}
-
-</div>
-
-</div>
-
-</div>
-
-`;
-
+$('addBtn').addEventListener('click',()=>{
+  if(form.style.display==='block'){
+    clearForm();form.style.display='none';
+  }else{
+    clearForm();form.style.display='block';
+  }
 });
 
-}
-
-/* SEARCH */
-
-searchInput.addEventListener("input",function(){
-
-const text=this.value.trim().toLowerCase();
-
-result.innerHTML="";
-
-if(text==""){
-
-searchCount.innerHTML=0;
-noRecord.style.display="none";
-
-return;
-
-}
-
-const onlyNumber=text.replace(/\D/g,"");
-
-const filter=data.filter(item=>{
-
-if(onlyNumber.length>0){
-
-return item.raw.includes(onlyNumber)
-||
-
-item.format.replace(/\D/g,"")
-.includes(onlyNumber);
-
-}
-
-return item.name
-.toLowerCase()
-.startsWith(text);
-
+aadhaarInput.addEventListener('input',()=>{
+  aadhaarInput.value=aadhaarInput.value.replace(/\D/g,'').slice(0,12);
 });
 
-showData(filter);
+const cameraPhoto=$('cameraPhoto');
+const customerPhoto=$('customerPhoto');
+const cameraBtn=$('cameraBtn'),galleryBtn=$('galleryBtn');
+const cropModal=$('cropModal'),cropArea=$('cropArea'),cropImage=$('cropImage'),cropZoom=$('cropZoom'),zoomValue=$('zoomValue');
+let cropState={img:null,scale:1,x:0,y:0,baseScale:1,objectUrl:''};
+let drag={active:false,sx:0,sy:0,ox:0,oy:0};
 
-});
+// IMPORTANT: open the native Android picker directly from a real button click.
+// This avoids label/button nesting issues on Android WebView/Chrome.
+cameraBtn.addEventListener('click',()=>cameraPhoto.click());
+galleryBtn.addEventListener('click',()=>customerPhoto.click());
 
-const customerName = document.getElementById("customerName");
-const aadhaarInput = document.getElementById("aadhaarInput");
-const relationType = document.getElementById("relationType");
-const relationName = document.getElementById("relationName");
-const saveBtn = document.getElementById("saveBtn");
+function openCrop(file){
+  if(!file) return;
+  if(!file.type || !file.type.startsWith('image/')){
+    alert('Please select a JPG, PNG or WEBP image.');
+    return;
+  }
 
-/* Add Customer */
-
-saveBtn.addEventListener("click", function(){
-
-    let name = customerName.value.trim();
-    let raw = aadhaarInput.value.replace(/\D/g,"");
-
-    if(name==="" || raw===""){
-        alert("Please fill all fields.");
-        return;
+  const objectUrl=URL.createObjectURL(file);
+  const im=new Image();
+  im.onload=()=>{
+    if(!im.naturalWidth || !im.naturalHeight){
+      alert('Unable to read this image. Please choose another JPG/PNG photo.');
+      return;
     }
-
-    if(raw.length!==12){
-        alert("Aadhaar Number must be 12 digits.");
-        return;
-    }
-
-    // Duplicate Check
-    if(data.some(item => item.raw === raw)){
-        alert("This Aadhaar Number already exists.");
-        return;
-    }
-
-    data.push({
-        name:name,
-        relationType:relationType.value,
-        relationName:relationName.value.trim(),
-        raw:raw,
-        format:formatAadhaar(raw)
+    cropState.img=im;
+    cropState.objectUrl=objectUrl;
+    cropState.x=0;
+    cropState.y=0;
+    cropState.scale=1;
+    cropImage.src=objectUrl;
+    cropZoom.value='1';
+    zoomValue.textContent='1.00×';
+    cropModal.style.display='flex';
+    requestAnimationFrame(()=>{
+      const box=cropArea.clientWidth||300;
+      const areaW=cropArea.clientWidth||300;
+      const areaH=cropArea.clientHeight||300;
+      cropState.baseScale=Math.max(areaW/im.naturalWidth,areaH/im.naturalHeight);
+      renderCrop();
     });
+  };
+  im.onerror=()=>{
+    URL.revokeObjectURL(objectUrl);
+    alert('This image format cannot be opened by the device browser. Please use JPG or PNG.');
+  };
+  im.src=objectUrl;
+}
 
-    /*
-    NO localStorage save here.
-    Data exists only in memory.
-    */
+function renderCrop(){
+  const im=cropState.img;
+  if(!im)return;
+  const areaW=cropArea.clientWidth;
+  const areaH=cropArea.clientHeight;
+  if(!areaW || !areaH)return;
 
-    updateTotal();
+  // Always scale relative to the crop-area center.
+  // baseScale makes the complete image cover the crop area; zoom only
+  // multiplies that scale and never changes the center point.
+  const scale=cropState.baseScale*cropState.scale;
+  const w=im.naturalWidth*scale;
+  const h=im.naturalHeight*scale;
 
-    customerName.value="";
-    aadhaarInput.value="";
-    relationName.value="";
-    form.style.display="none";
+  cropImage.style.position='absolute';
+  cropImage.style.width=w+'px';
+  cropImage.style.height=h+'px';
+  cropImage.style.maxWidth='none';
+  cropImage.style.maxHeight='none';
+  cropImage.style.left=(areaW/2 + cropState.x)+'px';
+  cropImage.style.top=(areaH/2 + cropState.y)+'px';
+  cropImage.style.transform='translate(-50%, -50%)';
+  cropImage.style.transformOrigin='center center';
+}
 
-    alert("Customer Added Successfully");
 
+cropZoom.addEventListener('input',()=>{
+  cropState.scale=parseFloat(cropZoom.value)||1;
+  zoomValue.textContent=cropState.scale.toFixed(2)+'×';
+  renderCrop();
+});
+function dragStart(e){
+  drag.active=true;
+  const p=e.touches?e.touches[0]:e;
+  drag.sx=p.clientX; drag.sy=p.clientY;
+  drag.ox=cropState.x; drag.oy=cropState.y;
+  e.preventDefault();
+}
+function dragMove(e){
+  if(!drag.active)return;
+  const p=e.touches?e.touches[0]:e;
+  cropState.x=drag.ox+(p.clientX-drag.sx);
+  cropState.y=drag.oy+(p.clientY-drag.sy);
+  renderCrop();
+  e.preventDefault();
+}
+function dragEnd(){drag.active=false}
+cropArea.addEventListener('mousedown',dragStart);
+window.addEventListener('mousemove',dragMove);
+window.addEventListener('mouseup',dragEnd);
+cropArea.addEventListener('touchstart',dragStart,{passive:false});
+window.addEventListener('touchmove',dragMove,{passive:false});
+window.addEventListener('touchend',dragEnd);
+
+function applyCrop(){
+  const im=cropState.img;
+  if(!im)return;
+  const box=cropArea.clientWidth;
+  const scale=cropState.baseScale*cropState.scale;
+  if(!box || !scale)return;
+
+  const canvas=document.createElement('canvas');
+  canvas.width=800; canvas.height=800;
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.fillStyle='#fff';
+  ctx.fillRect(0,0,800,800);
+
+  // Use the ACTUAL displayed image position. This prevents the crop
+  // from selecting the opposite area when the image is dragged/zoomed.
+  const areaRect = cropArea.getBoundingClientRect();
+  const imageRect = cropImage.getBoundingClientRect();
+  const displayW = imageRect.width;
+  const displayH = imageRect.height;
+  const sourceScaleX = im.naturalWidth / displayW;
+  const sourceScaleY = im.naturalHeight / displayH;
+
+  // Crop window is exactly the cropArea. Its top-left in the displayed
+  // image determines the source rectangle.
+  const sx = (areaRect.left - imageRect.left) * sourceScaleX;
+  const sy = (areaRect.top - imageRect.top) * sourceScaleY;
+  const sw = areaRect.width * sourceScaleX;
+  const sh = areaRect.height * sourceScaleY;
+
+  ctx.drawImage(im, sx, sy, sw, sh, 0, 0, 800, 800);
+
+  selectedPhoto=canvas.toDataURL('image/jpeg',0.88);
+  photoPreview.src=selectedPhoto;
+  photoPreview.style.display='block';
+  cropModal.style.display='none';
+  if(cropState.objectUrl) URL.revokeObjectURL(cropState.objectUrl);
+  cropState.objectUrl='';
+  cropState.img=null;
+}
+
+$('cropApply').addEventListener('click',applyCrop);
+$('cropCancel').addEventListener('click',()=>{
+  cropModal.style.display='none';
+  if(cropState.objectUrl) URL.revokeObjectURL(cropState.objectUrl);
+  cropState.objectUrl='';
+  cropState.img=null;
+  cropImage.removeAttribute('src');
 });
 
-/* ===== Backup Download ===== */
+cameraPhoto.addEventListener('change',e=>{
+  const f=e.target.files && e.target.files[0];
+  e.target.value='';
+  if(f)openCrop(f);
+});
+customerPhoto.addEventListener('change',e=>{
+  const f=e.target.files && e.target.files[0];
+  e.target.value='';
+  if(f)openCrop(f);
+});
 
-const backupBtn = document.getElementById("backupBtn");
+saveBtn.addEventListener('click',()=>{
+  const name=customerName.value.trim();
+  const raw=aadhaarInput.value.replace(/\D/g,'');
+  if(!name){alert('Please enter Customer Name.');return}
+  if(raw.length!==12){alert('Aadhaar Number must be 12 digits.');return}
+  if(data.some((x,i)=>String(x.raw||'').replace(/\D/g,'')===raw && i!==editingIndex)){
+    alert('This Aadhaar Number already exists.');return;
+  }
+  const item={name,relationType:relationType.value,relationName:relationName.value.trim(),raw,format:formatAadhaar(raw),photo:selectedPhoto||''};
+  const wasEditing=editingIndex>=0;
+  const old=wasEditing ? data[editingIndex] : null;
+  if(wasEditing) data[editingIndex]=item; else data.push(item);
+  try{
+    persist();
+  }catch(e){
+    if(editingIndex>=0 && old) data[editingIndex]=old; else data.pop();
+    alert('❌ Data could not be saved.');return;
+  }
+  clearForm();form.style.display='none';updateTotal();
+  if(searchInput.value.trim()) search();
+  alert(wasEditing?'✅ Customer Updated Successfully':'✅ Customer Added Successfully');
+});
 
-backupBtn.addEventListener("click", function(){
+/* =========================
+   EDIT + PASSWORD
+   ========================= */
+function editCustomer(index){
+  if(index<0 || index>=data.length)return;
+  const p=prompt('Enter Edit Password:');
+  if(p===null)return;
+  if(p!==EDIT_PASSWORD){alert('❌ Incorrect Password');return}
+  const x=data[index];
+  editingIndex=index;
+  customerName.value=x.name||'';
+  aadhaarInput.value=String(x.raw||'').replace(/\D/g,'');
+  relationType.value=x.relationType||'Father';
+  relationName.value=x.relationName||'';
+  selectedPhoto=x.photo||'';
+  photoPreview.src=selectedPhoto;
+  photoPreview.style.display=selectedPhoto?'block':'none';
+  saveBtn.textContent='Update Customer';
+  form.style.display='block';
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+window.editCustomer=editCustomer;
 
-    if(data.length === 0){
-        alert("No customer data found.");
-        return;
-    }
-
-    const jsData = `window.aadhaarData = ${JSON.stringify(data, null, 2)};\n`;
-
-    const blob = new Blob([jsData], {
-        type: "application/javascript"
-    });
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "aadhaar_backup.js";
-
+/* =========================
+   BACKUP AS JS FILE
+   ========================= */
+backupBtn.addEventListener('click',()=>{
+  if(!data.length){
+    alert('No customer data found.');
+    return;
+  }
+  try{
+    const clean=normalizeRecords(data);
+    // JS file content
+    const jsContent =
+`const DEFAULT_DATA = ${JSON.stringify(clean,null,2)};`;
+    const blob=new Blob(
+      [jsContent],
+      {type:'application/javascript;charset=utf-8'}
+    );
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='Auto_Load_aadhaar-data.js';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-
-    window.URL.revokeObjectURL(url);
-
+    a.remove();
+    setTimeout(()=>{
+      URL.revokeObjectURL(url);
+    },1000);
+    alert(
+      '✅ JS Backup Downloaded Successfully!\\n\\n' +
+      'File: Auto_Load_aadhaar-data.js\\n' +
+      'Total Records: '+clean.length
+    );
+  }catch(e){
+    alert('❌ JS Backup failed: '+e.message);
+  }
 });
 
-/* ===== Restore Backup ===== */
+/* =========================
+   RESTORE - ROBUST LOADER
+   ========================= */
+restoreBtn.addEventListener('click',()=>{restoreFile.value='';restoreFile.click()});
 
-const restoreBtn = document.getElementById("restoreBtn");
-const restoreFile = document.getElementById("restoreFile");
-
-restoreBtn.addEventListener("click", function () {
-    restoreFile.value = "";
-    restoreFile.click();
-});
-
-restoreFile.addEventListener("change", function (e) {
-
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = function () {
-
-        try {
-
-            let backupData;
-            const text = reader.result.trim();
-
-            if (file.name.toLowerCase().endsWith(".js")) {
-
-                const match = text.match(
-                    /(?:window\.)?aadhaarData\s*=\s*([\s\S]*?)\s*;?\s*$/
-                );
-
-                if (!match) throw new Error("Invalid JS backup");
-
-                backupData = JSON.parse(
-                    match[1].replace(/;\s*$/, "")
-                );
-
-            } else {
-
-                backupData = JSON.parse(text);
-
-            }
-
-            if (!Array.isArray(backupData)) {
-                alert("Invalid Backup File");
-                return;
-            }
-
-            /*
-            Restore only into RAM.
-            Nothing is saved to localStorage.
-            */
-
-            data = backupData;
-
-            updateTotal();
-
-            searchInput.value = "";
-            result.innerHTML = "";
-            searchCount.textContent = "0";
-            noRecord.style.display = "none";
-
-            alert("Backup Restore Successfully");
-
-        } catch (err) {
-
-            alert("Invalid JSON or JS Backup File");
-
-        }
-
-    };
-
-    reader.readAsText(file);
-
-});
-
-/* ===== Delete All ===== */
-
-const deleteBtn = document.getElementById("deleteBtn");
-
-deleteBtn.addEventListener("click", function () {
-
-    if (!confirm("Are you sure you want to delete all customers?")) {
-        return;
+function cleanJSONText(text){
+  let t=String(text||'').replace(/^\uFEFF/,'').trim();
+  if(t.startsWith('```')) t=t.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+  return t;
+}
+function getRecords(obj){
+  if(Array.isArray(obj))return obj;
+  if(obj && typeof obj==='object'){
+    for(const k of ['data','customers','aadhaarData','records','items','voters']){
+      if(Array.isArray(obj[k]))return obj[k];
     }
+  }
+  return null;
+}
 
-    // Empty Array
-    data.length = 0;
-
-    /*
-    No localStorage operation.
-    */
-
-    result.innerHTML = "";
-    searchInput.value = "";
-    searchCount.textContent = "0";
-    totalCount.textContent = "0";
-    noRecord.style.display = "none";
-
-    alert("All Customer Deleted Successfully");
-
+restoreFile.addEventListener('change',e=>{
+  const file=e.target.files?.[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const text=cleanJSONText(reader.result);
+      const parsed=JSON.parse(text);
+      const records=getRecords(parsed);
+      const cleaned=normalizeRecords(records);
+      if(!records || !cleaned.length) throw new Error('No valid records');
+      data=cleaned;
+      persist();
+      updateTotal();
+      result.innerHTML='';
+      searchInput.value='';
+      searchCount.textContent='0';
+      noRecord.style.display='none';
+      alert(`✅ Backup Restored Successfully\nTotal Records: ${data.length}\n\nএই data বর্তমান page session-এ loaded হয়েছে।`);
+    }catch(err){
+      console.error(err);
+      alert('❌ Restore failed. The backup was not applied.\n\n'+err.message);
+    }finally{
+      restoreFile.value='';
+    }
+  };
+  reader.onerror=()=>alert('Unable to read backup file.');
+  reader.readAsText(file);
 });
 
-</script></body>
-</html>
+/* =========================
+   DELETE ALL
+   ========================= */
+deleteBtn.addEventListener('click',()=>{
+  if(!data.length){alert('No customer data found.');return}
+  if(!confirm('Are you sure you want to delete ALL customers?'))return;
+  data=[];
+  result.innerHTML='';searchInput.value='';searchCount.textContent='0';noRecord.style.display='none';updateTotal();
+  alert('All Customer Data Deleted Successfully.');
+});
+
+searchInput.addEventListener('input',search);
+
+/* =========================
+   STARTUP
+   ========================= */
+(function init(){
+  try{
+    data=loadSavedData();
+  }catch(e){
+    console.error(e);
+    data=[];
+    alert('❌ aadhaar-data.js could not be loaded or contains invalid data.');
+  }
+  updateTotal();
+  searchCount.textContent='0';
+  noRecord.style.display='none';
+})();
+</script></body></html>
